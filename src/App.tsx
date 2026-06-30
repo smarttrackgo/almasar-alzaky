@@ -612,9 +612,6 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
         </nav>
 
         <div className="flex items-center gap-2">
-          <div className="hidden md:block">
-            <LanguageSelector />
-          </div>
           <Authenticated>
             <NotificationBell navigate={navigate} />
             <button
@@ -628,6 +625,9 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
             <SignOutButton />
           </Authenticated>
           <Unauthenticated>
+            <div className="hidden md:block">
+              <LanguageSelector />
+            </div>
             <button
               onClick={() => navigate({ name: "signin" })}
               className="hidden md:inline-flex px-5 py-2 rounded-xl border border-amber-200/40 bg-amber-300/90 text-emerald-950 font-bold text-sm shadow-lg shadow-amber-950/10 transition-all hover:bg-amber-200"
@@ -647,9 +647,11 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
 
       {menuOpen && (
         <div className="smart-mobile-menu lg:hidden border-t border-white/10 bg-emerald-950/75 px-4 py-3 space-y-1 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl">
-          <div className="pb-2">
-            <LanguageSelector compact />
-          </div>
+          <Unauthenticated>
+            <div className="pb-2">
+              <LanguageSelector compact />
+            </div>
+          </Unauthenticated>
           {[
             { label: t("nav.home"),         p: { name: "home" } as Page },
             { label: t("nav.about"),        p: { name: "about" } as Page },

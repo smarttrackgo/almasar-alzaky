@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { Globe2 } from "lucide-react";
 
 export type AppLanguage = "ar" | "en" | "ur";
 
@@ -249,20 +250,44 @@ export function useI18n() {
 
 export function LanguageSelector({ compact = false }: { compact?: boolean }) {
   const { language, setLanguage } = useI18n();
+  const [open, setOpen] = useState(false);
+  const current = LANGUAGE_OPTIONS.find((option) => option.code === language) ?? LANGUAGE_OPTIONS[0];
+
   return (
-    <div className={`flex items-center gap-1 rounded-xl border border-white/15 bg-white/10 p-1 ${compact ? "w-full" : ""}`}>
-      {LANGUAGE_OPTIONS.map((option) => (
+    <div className={`relative ${compact ? "w-full" : ""}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 text-white shadow-lg shadow-emerald-950/10 transition-all hover:bg-white/15 ${
+          compact ? "w-full px-4 py-3" : "h-10 w-10"
+        }`}
+        aria-label="تغيير اللغة"
+        title={current.nativeName}
+      >
+        <Globe2 className="h-4 w-4" />
+        {compact && <span className="text-xs font-black">{current.shortName}</span>}
+      </button>
+
+      {open && (
+        <div className={`absolute top-full z-50 mt-2 min-w-36 overflow-hidden rounded-2xl border border-emerald-100 bg-white p-1.5 text-gray-800 shadow-2xl shadow-emerald-950/20 ${compact ? "inset-x-0" : "end-0"}`}>
+          {LANGUAGE_OPTIONS.map((option) => (
         <button
           key={option.code}
-          onClick={() => setLanguage(option.code)}
-          className={`rounded-lg px-2.5 py-1.5 text-[11px] font-black transition-all ${
-            language === option.code ? "bg-amber-300 text-emerald-950" : "text-white/75 hover:bg-white/10 hover:text-white"
-          } ${compact ? "flex-1" : ""}`}
-          title={option.nativeName}
+              type="button"
+              onClick={() => {
+                setLanguage(option.code);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-bold transition-colors ${
+                language === option.code ? "bg-emerald-50 text-emerald-800" : "hover:bg-gray-50"
+              }`}
         >
-          {option.shortName}
+              <span>{option.nativeName}</span>
+              <span className="text-[11px] text-gray-400">{option.shortName}</span>
         </button>
-      ))}
+          ))}
+        </div>
+      )}
     </div>
   );
 }
