@@ -193,8 +193,8 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
 
   return (
     <div className="min-h-screen flex flex-col" dir="rtl">
-      <AnnouncementBanner />
-      <Navbar navigate={navigate} page={page} menuOpen={menuOpen} setMenuOpen={setMenuOpen} goBack={goBack} canGoBack={canGoBack} />
+      {page.name !== "quran" && <AnnouncementBanner />}
+      {page.name !== "quran" && <Navbar navigate={navigate} page={page} menuOpen={menuOpen} setMenuOpen={setMenuOpen} goBack={goBack} canGoBack={canGoBack} />}
 
       {skipVerification && user && !(user as any).isAdmin && user.email && emailVerified === false && (
         <div className="bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between gap-3 text-sm font-semibold" dir="rtl">
@@ -239,7 +239,7 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
         {page.name === "signin"           && <SignInPage navigate={navigate} />}
         {page.name === "forgot-password"  && <ForgotPasswordPage navigate={navigate} />}
       </main>
-      <Footer navigate={navigate} />
+      {page.name !== "quran" && <Footer navigate={navigate} />}
       {page.name !== "quran" && <FloatingQuranBtn navigate={navigate} />}
       {(user as any)?.accountType === "pilgrim" && page.name !== "support" && page.name !== "admin" && page.name !== "office-dashboard" && (
         <FloatingSupportBtn navigate={navigate} />
@@ -399,8 +399,8 @@ export default function App() {
       </Authenticated>
       <Unauthenticated>
         <div className="min-h-screen flex flex-col" dir="rtl">
-          <AnnouncementBanner />
-          <Navbar navigate={navigate} page={page} menuOpen={menuOpen} setMenuOpen={setMenuOpen} goBack={goBack} canGoBack={canGoBack} />
+          {page.name !== "quran" && <AnnouncementBanner />}
+          {page.name !== "quran" && <Navbar navigate={navigate} page={page} menuOpen={menuOpen} setMenuOpen={setMenuOpen} goBack={goBack} canGoBack={canGoBack} />}
           <main className="flex-1">
             {page.name === "home"      && <HomePage navigate={navigate} />}
             {page.name === "package"   && <PackageDetailPage packageId={page.id} navigate={navigate} />}
@@ -420,7 +420,7 @@ export default function App() {
               page.name === "office-dashboard" || page.name === "driver-dashboard" || page.name === "admin" ||
               page.name === "payment" || page.name === "booking-detail") && <SignInPage navigate={navigate} />}
           </main>
-          <Footer navigate={navigate} />
+          {page.name !== "quran" && <Footer navigate={navigate} />}
           {page.name !== "quran" && <FloatingQuranBtn navigate={navigate} />}
           <Toaster position="top-center" richColors />
         </div>
