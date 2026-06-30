@@ -3,7 +3,8 @@ import { Page } from "../App";
 import {
   Play, Pause, SkipForward, SkipBack, Volume2, BookOpen,
   Headphones, Search, ChevronRight, Repeat,
-  VolumeX, Volume1, ListMusic
+  VolumeX, Volume1, ListMusic, Video, FileText, ExternalLink,
+  Loader2, AlertCircle
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════
@@ -19,9 +20,15 @@ const RECITERS = [
   { id: "ar.muhammadayyoub",      name: "محمد أيوب",            country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-amber-700 to-amber-900" },
   { id: "ar.alafasy",             name: "مشاري العفاسي",        country: "الكويت",   flag: "🇰🇼", style: "مرتل",  color: "from-blue-700 to-blue-900" },
   { id: "ar.mahermuaiqly",        name: "ماهر المعيقلي",        country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-indigo-700 to-indigo-900" },
-  { id: "ar.sudais",              name: "عبد الرحمن السديس",    country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-purple-700 to-purple-900" },
+  { id: "ar.abdurrahmaansudais",  name: "عبد الرحمن السديس",    country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-purple-700 to-purple-900" },
   { id: "ar.saoodshuraym",        name: "سعود الشريم",          country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-rose-700 to-rose-900" },
   { id: "ar.shaatree",            name: "أبو بكر الشاطري",      country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-cyan-700 to-cyan-900" },
+  { id: "ar.ahmedajamy",          name: "أحمد بن علي العجمي",    country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-orange-700 to-red-900" },
+  { id: "ar.hudhaify",            name: "علي الحذيفي",           country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-sky-700 to-sky-950" },
+  { id: "ar.hanirifai",           name: "هاني الرفاعي",          country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-violet-700 to-violet-950" },
+  { id: "ar.muhammadjibreel",     name: "محمد جبريل",            country: "مصر",      flag: "🇪🇬", style: "مرتل",  color: "from-lime-700 to-emerald-950" },
+  { id: "ar.aymanswoaid",         name: "أيمن سويد",             country: "سوريا",    flag: "🇸🇾", style: "تعليمي", color: "from-stone-700 to-stone-950" },
+  { id: "ar.abdullahbasfar",      name: "عبد الله بصفر",         country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-red-700 to-red-950" },
 ];
 
 /* ══════════════════════════════════════════════
@@ -146,6 +153,12 @@ const SURAHS = [
 
 const JUZS = Array.from({ length: 30 }, (_, i) => i + 1);
 type FilterMode = "all" | "makki" | "madani" | "juz";
+type QuranMode = "audio" | "video" | "meanings";
+
+type MeaningAyah = {
+  numberInSurah: number;
+  text: string;
+};
 
 function formatTime(sec: number) {
   if (!isFinite(sec) || isNaN(sec)) return "0:00";
@@ -169,9 +182,14 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const [isRepeat,    setIsRepeat]    = useState(false);
   const [autoPlay,    setAutoPlay]    = useState(false);
   const [reciterSearch, setReciterSearch] = useState("");
+  const [mode, setMode] = useState<QuranMode>("audio");
+  const [meanings, setMeanings] = useState<MeaningAyah[]>([]);
+  const [meaningsLoading, setMeaningsLoading] = useState(false);
+  const [meaningsError, setMeaningsError] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const audioUrl = `https://cdn.islamic.network/quran/audio-surah/128/${selectedReciter.id}/${selectedSurah.num}.mp3`;
+  const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${selectedReciter.name} سورة ${selectedSurah.name} تلاوة مرئية`)}`;
 
   const filteredSurahs = SURAHS.filter(s => {
     const matchSearch = s.name.includes(search) || String(s.num).includes(search);
@@ -201,6 +219,40 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedReciter.id, selectedSurah.num]);
+
+  useEffect(() => {
+    if (mode !== "meanings") return;
+
+    const controller = new AbortController();
+    setMeaningsLoading(true);
+    setMeaningsError("");
+
+    fetch(`https://api.alquran.cloud/v1/surah/${selectedSurah.num}/ar.muyassar`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("تعذر تحميل المعاني");
+        return res.json();
+      })
+      .then((payload) => {
+        const ayahs = payload?.data?.ayahs ?? [];
+        setMeanings(
+          ayahs.map((ayah: any) => ({
+            numberInSurah: ayah.numberInSurah,
+            text: ayah.text,
+          }))
+        );
+      })
+      .catch((err) => {
+        if (err?.name !== "AbortError") {
+          setMeanings([]);
+          setMeaningsError("تعذر تحميل معاني السورة الآن. حاول مرة أخرى بعد قليل.");
+        }
+      })
+      .finally(() => setMeaningsLoading(false));
+
+    return () => controller.abort();
+  }, [mode, selectedSurah.num]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -288,6 +340,27 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl bg-white border border-gray-100 p-2 shadow-sm">
+          {[
+            { key: "audio" as const, label: "صوتي", Icon: Headphones },
+            { key: "video" as const, label: "مرئي", Icon: Video },
+            { key: "meanings" as const, label: "المعاني", Icon: FileText },
+          ].map(({ key, label, Icon }) => (
+            <button
+              key={key}
+              onClick={() => setMode(key)}
+              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition-all ${
+                mode === key
+                  ? "bg-emerald-700 text-white shadow-md"
+                  : "bg-gray-50 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* ══ عمود القراء ══ */}
@@ -453,6 +526,96 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
                 </div>
               )}
             </div>
+
+            {mode === "video" && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gray-950 text-white p-5">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold mb-2">
+                        <Video className="w-4 h-4" />
+                        التلاوة المرئية
+                      </div>
+                      <h2 className="text-2xl font-black">سورة {selectedSurah.name}</h2>
+                      <p className="text-gray-400 text-sm mt-1">{selectedReciter.name}</p>
+                    </div>
+                    <a
+                      href={videoSearchUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-3 text-sm font-black transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      فتح التلاوة المرئية
+                    </a>
+                  </div>
+                </div>
+                <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {["تلاوة مرئية كاملة", "تلاوة من الحرم", "تلاوة خاشعة بجودة عالية"].map((label) => (
+                    <a
+                      key={label}
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${selectedReciter.name} ${selectedSurah.name} ${label}`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group rounded-xl border border-gray-100 bg-gray-50 p-4 hover:border-red-200 hover:bg-red-50 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center mb-3 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                        <Video className="w-5 h-5" />
+                      </div>
+                      <div className="font-black text-gray-800 text-sm">{label}</div>
+                      <div className="text-xs text-gray-400 mt-1">يفتح نتائج مرئية مناسبة للسورة والقارئ</div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {mode === "meanings" && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-l from-amber-700 to-amber-900 text-white px-5 py-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-amber-200 text-xs font-bold mb-1">
+                      <FileText className="w-4 h-4" />
+                      معاني القرآن
+                    </div>
+                    <h2 className="font-black text-xl">معاني سورة {selectedSurah.name}</h2>
+                  </div>
+                  <div className="text-xs bg-white/15 rounded-full px-3 py-1 font-bold">
+                    التفسير الميسر
+                  </div>
+                </div>
+                <div className="p-5">
+                  {meaningsLoading && (
+                    <div className="py-12 flex flex-col items-center justify-center text-amber-700">
+                      <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                      <p className="text-sm font-bold">جاري تحميل المعاني...</p>
+                    </div>
+                  )}
+
+                  {meaningsError && !meaningsLoading && (
+                    <div className="rounded-xl bg-red-50 border border-red-100 p-4 text-red-700 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm font-bold">{meaningsError}</p>
+                    </div>
+                  )}
+
+                  {!meaningsLoading && !meaningsError && meanings.length > 0 && (
+                    <div className="space-y-3 max-h-[520px] overflow-y-auto pl-1">
+                      {meanings.map((ayah) => (
+                        <div key={ayah.numberInSurah} className="rounded-xl border border-gray-100 bg-amber-50/50 p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-amber-700 text-white flex items-center justify-center text-xs font-black flex-shrink-0">
+                              {ayah.numberInSurah}
+                            </div>
+                            <p className="text-gray-800 leading-8 text-sm">{ayah.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── قائمة السور ── */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
