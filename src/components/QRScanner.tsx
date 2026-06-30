@@ -9,7 +9,8 @@ interface QRScannerProps {
 
 export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   const scannerRef  = useRef<Html5Qrcode | null>(null);
-  const divId       = "qr-reader-" + Math.random().toString(36).slice(2, 8);
+  const divIdRef    = useRef("qr-reader-" + Math.random().toString(36).slice(2, 8));
+  const divId       = divIdRef.current;
   const [error, setError]     = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const scannedRef = useRef(false);
@@ -39,8 +40,14 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
           if (scannedRef.current) return;
           scannedRef.current = true;
           // إيقاف الماسح بعد النجاح
-          scanner.stop().catch(() => {});
-          onScan(decodedText);
+          setStarted(false);
+          scanner
+            .stop()
+            .catch(() => {})
+            .finally(() => {
+              scannerRef.current = null;
+              onScan(decodedText);
+            });
         },
         () => {} // خطأ مؤقت — تجاهل
       );
@@ -58,7 +65,9 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   useEffect(() => {
     startScanner();
     return () => {
-      scannerRef.current?.stop().catch(() => {});
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      scanner?.stop().catch(() => {});
     };
   }, [startScanner]);
 
