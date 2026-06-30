@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
@@ -2295,6 +2295,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
   const fromTs = dateFrom ? new Date(dateFrom).getTime() : undefined;
   const toTs   = dateTo   ? new Date(dateTo + "T23:59:59").getTime() : undefined;
@@ -2461,13 +2462,38 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
     const taxableAmount = Math.round((amount || 0) / (1 + rate / 100));
     return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
   };
+  const bookingGross = (row: any) => row.pilgrimTotalAmount ?? row.officeBaseAmount ?? row.bookingAmount ?? 0;
+  const bookingPassengerCount = (row: any) => Math.max(1, Number(row.passengerCount ?? row.adultsCount ?? 1));
+  const bookingPassengers = (row: any) => {
+    const adults = Math.max(1, Number(row.adultsCount ?? 1));
+    const children = Math.max(0, Number(row.childrenCount ?? 0));
+    const total = Math.max(1, adults + children);
+    const share = Math.round(bookingGross(row) / total);
+    const passengers = [
+      {
+        name: row.passengerName,
+        type: "بالغ",
+        phone: row.passengerPhone ?? "—",
+        idNumber: row.passengerIdNumber ?? "—",
+        amount: share,
+        note: "المعتمر الرئيسي",
+      },
+    ];
+    for (let i = 2; i <= adults; i += 1) {
+      passengers.push({ name: `معتمر بالغ ${i}`, type: "بالغ", phone: "—", idNumber: "—", amount: share, note: "ضمن نفس رقم الحجز" });
+    }
+    for (let i = 1; i <= children; i += 1) {
+      passengers.push({ name: `طفل ${i}`, type: "طفل", phone: "—", idNumber: "—", amount: share, note: "ضمن نفس رقم الحجز" });
+    }
+    return passengers.slice(0, total);
+  };
   const totalOfficeVatFallback = rows.reduce((sum: number, row: any) => {
     const gross = row.pilgrimTotalAmount ?? row.officeBaseAmount ?? row.bookingAmount ?? 0;
     return sum + splitVat(gross, row.taxRate ?? 15).vatAmount;
   }, 0);
 
   const handleOfficeTaxInvoice = (row: any) => {
-    const gross = row.pilgrimTotalAmount ?? row.officeBaseAmount ?? row.bookingAmount ?? 0;
+    const gross = bookingGross(row);
     const tax = splitVat(gross, row.taxRate ?? 15);
     void printTaxInvoice({
       invoiceNo: row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`,
@@ -2485,6 +2511,27 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
       vatAmount: tax.vatAmount,
       vatRate: row.taxRate ?? 15,
       notes: "هذه الفاتورة الضريبية مرتبطة بكشف حساب المكتب والحجز الموضح أعلاه.",
+    });
+  };
+  const handlePassengerTaxInvoice = (row: any, passenger: any, index: number) => {
+    const gross = passenger.amount ?? Math.round(bookingGross(row) / bookingPassengerCount(row));
+    const tax = splitVat(gross, row.taxRate ?? 15);
+    void printTaxInvoice({
+      invoiceNo: `${row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`}-P${index + 1}`,
+      title: "فاتورة ضريبية منفصلة - معتمر",
+      seller: { name: officeName, commercialRegister: row.officeCommercialRegister, city: "السعودية" },
+      buyer: { name: passenger.name, city: "السعودية" },
+      bookingRef: row.bookingRef,
+      passengerName: passenger.name,
+      passengerCount: 1,
+      packageTitle: row.packageTitle,
+      invoiceDate: row.bookingDate,
+      description: `حصة ${passenger.name} من إجمالي الحجز رقم ${row.bookingRef}`,
+      grossAmount: gross,
+      taxableAmount: tax.taxableAmount,
+      vatAmount: tax.vatAmount,
+      vatRate: row.taxRate ?? 15,
+      notes: "فاتورة منفصلة للمعتمر داخل نفس رقم الحجز، مع إمكانية طباعة فاتورة مجمعة للحجز بالكامل.",
     });
   };
 
@@ -2619,9 +2666,16 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
                 <tbody>
                   {rows.map((row, i) => {
                     const bs = STATUS[row.bookingStatus] ?? { label: row.bookingStatus, cls: "bg-gray-100 text-gray-600" };
+                    const isExpanded = expandedBookingId === row.bookingId;
+                    const passengers = bookingPassengers(row);
                     return (
-                      <tr key={row.bookingId} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                        <td className="px-4 py-3 text-xs font-mono text-emerald-700 font-bold whitespace-nowrap">{row.bookingRef}</td>
+                      <Fragment key={row.bookingId}>
+                      <tr className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <td className="px-4 py-3 text-xs font-mono text-emerald-700 font-bold whitespace-nowrap">
+                          <button onClick={() => setExpandedBookingId(isExpanded ? null : row.bookingId)} className="underline decoration-dotted underline-offset-4 hover:text-emerald-900">
+                            {row.bookingRef}
+                          </button>
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(row.bookingDate).toLocaleDateString("ar-SA")}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
                           <div>{row.passengerName}</div>
@@ -2652,6 +2706,58 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
                           </button>
                         </td>
                       </tr>
+                      {isExpanded && (
+                        <tr className="bg-emerald-50/40">
+                          <td colSpan={9} className="px-5 py-4">
+                            <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+                              <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                                <div>
+                                  <div className="font-black text-gray-800 text-sm">تفاصيل المعتمرين داخل الحجز {row.bookingRef}</div>
+                                  <div className="text-xs text-gray-400 mt-1">عدد المعتمرين: {bookingPassengerCount(row)} - إجمالي الحجز: {bookingGross(row).toLocaleString("ar-SA")} ر.س</div>
+                                </div>
+                                <button onClick={() => handleOfficeTaxInvoice(row)} className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">
+                                  طباعة فاتورة مجمعة
+                                </button>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-gray-50 text-gray-500">
+                                      <th className="px-3 py-2 text-right">#</th>
+                                      <th className="px-3 py-2 text-right">الاسم</th>
+                                      <th className="px-3 py-2 text-right">النوع</th>
+                                      <th className="px-3 py-2 text-right">الجوال</th>
+                                      <th className="px-3 py-2 text-right">الهوية</th>
+                                      <th className="px-3 py-2 text-right">الحصة التقديرية</th>
+                                      <th className="px-3 py-2 text-right">ملاحظة</th>
+                                      <th className="px-3 py-2 text-right">طباعة</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {passengers.map((p, pIndex) => (
+                                      <tr key={`${row.bookingId}-${pIndex}`} className="border-t border-gray-100">
+                                        <td className="px-3 py-2 text-gray-400">{pIndex + 1}</td>
+                                        <td className="px-3 py-2 font-bold text-gray-800">{p.name}</td>
+                                        <td className="px-3 py-2 text-gray-600">{p.type}</td>
+                                        <td className="px-3 py-2 text-gray-500">{p.phone}</td>
+                                        <td className="px-3 py-2 text-gray-500">{p.idNumber}</td>
+                                        <td className="px-3 py-2 font-bold text-gray-800">{p.amount.toLocaleString("ar-SA")} ر.س</td>
+                                        <td className="px-3 py-2 text-gray-400">{p.note}</td>
+                                        <td className="px-3 py-2">
+                                          <button onClick={() => handlePassengerTaxInvoice(row, p, pIndex)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200">
+                                            فاتورة منفصلة
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
