@@ -2907,13 +2907,12 @@ function AdminCommissionsTab() {
   const commList       = useQuery(api.commissions.adminList);
   const offices        = useQuery(api.admin.getAllOffices);
   const defaultRate    = useQuery(api.commissions.getDefaultRate);
-  const defaultPassengerRate = useQuery((api as any).commissions.getDefaultPassengerRate);
+  const defaultPassengerRateRaw = useQuery(api.appSettings.get, { key: "passenger_commission_rate" });
   const settle         = useMutation(api.commissions.settle);
   const settleAll      = useMutation(api.commissions.settleAllForOffice);
   const updateDefault  = useMutation(api.commissions.updateDefaultRate);
   const updateOffice   = useMutation(api.commissions.updateOfficeRate);
-  const updateDefaultPassenger = useMutation((api as any).commissions.updateDefaultPassengerRate);
-  const updateOfficePassenger  = useMutation((api as any).commissions.updateOfficePassengerRate);
+  const updateDefaultPassenger = useMutation(api.appSettings.upsert);
   const syncComm       = useMutation(api.commissions.syncAllCommissions);
 
   const [newDefaultRate, setNewDefaultRate] = useState<string>("");
@@ -2925,6 +2924,9 @@ function AdminCommissionsTab() {
   const [syncing, setSyncing]              = useState(false);
 
   const inp = "w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all";
+  const defaultPassengerRate = defaultPassengerRateRaw === undefined
+    ? undefined
+    : Number.parseFloat(defaultPassengerRateRaw ?? "0") || 0;
 
   const COMM_STATUS: Record<string, { label: string; cls: string }> = {
     pending:   { label: "معلقة",  cls: "bg-amber-100 text-amber-700" },
@@ -2974,7 +2976,7 @@ function AdminCommissionsTab() {
     if (isNaN(rate)) { toast.error("أدخل نسبة مصاريف تشغيل صحيحة"); return; }
     setSavingRate(true);
     try {
-      await updateDefaultPassenger({ rate });
+      await updateDefaultPassenger({ key: "passenger_commission_rate", value: String(rate) });
       toast.success("✅ تم تحديث نسبة مصاريف التشغيل الافتراضية للمعتمر");
       setNewDefaultPassengerRate("");
     } catch (e) { toast.error(e instanceof Error ? e.message : "حدث خطأ"); }
@@ -2986,8 +2988,7 @@ function AdminCommissionsTab() {
     const rate = val === "" ? undefined : parseFloat(val);
     if (rate !== undefined && isNaN(rate)) { toast.error("أدخل نسبة مصاريف تشغيل صحيحة"); return; }
     try {
-      await updateOfficePassenger({ officeId, rate });
-      toast.success(`✅ تم تحديث نسبة مصاريف تشغيل المعتمر لمكتب "${officeName}"`);
+      toast.error(`حفظ نسبة المعتمر الخاصة بمكتب "${officeName}" يحتاج تفعيل تحديث قاعدة البيانات أولا`);
     } catch (e) { toast.error(e instanceof Error ? e.message : "حدث خطأ"); }
   };
 
@@ -3128,7 +3129,7 @@ function AdminCommissionsTab() {
           <p className="text-xs text-gray-400 mt-0.5">اتركها فارغة لاستخدام النسبة الافتراضية ({defaultRate}%)</p>
         </div>
         <div className="divide-y divide-gray-50">
-          {offices.map((o: any) => (
+          {(offices ?? []).map((o: any) => (
             <div key={o._id} className="p-4 flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 font-black flex-shrink-0">
                 {o.name.charAt(0)}
@@ -3189,7 +3190,7 @@ function AdminCommissionsTab() {
           <p className="text-xs text-gray-400 mt-0.5">الأخضر يخصم من سعر المكتب، والذهبي يضاف للمعتمر كمصاريف تشغيل وخدمات.</p>
         </div>
         <div className="divide-y divide-gray-50">
-          {offices.map((o: any) => (
+          {(offices ?? []).map((o: any) => (
             <div key={`split-${o._id}`} className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-3 items-center">
               <div>
                 <div className="font-bold text-gray-800 text-sm">{o.name}</div>
