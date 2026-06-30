@@ -4,7 +4,7 @@ import {
   Play, Pause, SkipForward, SkipBack, Volume2, BookOpen,
   Headphones, Search, ChevronRight, Repeat,
   VolumeX, Volume1, ListMusic, Video, FileText, ExternalLink,
-  Loader2, AlertCircle
+  Loader2, AlertCircle, Home
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════
@@ -178,7 +178,7 @@ function formatTime(sec: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page) => void }) {
+export default function QuranPage({ navigate }: { navigate: (p: Page) => void }) {
   const [selectedReciter, setSelectedReciter] = useState(RECITERS[0]);
   const [selectedSurah,   setSelectedSurah]   = useState(SURAHS[0]);
   const [isPlaying,  setIsPlaying]  = useState(false);
@@ -565,7 +565,14 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
                 <h1 className="font-black text-lg">المصحف الشريف</h1>
                 <p className="text-xs text-amber-200">صفحة {mushafPage} من 604 • محفوظة تلقائيًا</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <button
+                  onClick={() => navigate({ name: "home" })}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400 text-stone-950 hover:bg-amber-300 text-xs font-black shadow-sm"
+                >
+                  <Home className="w-4 h-4" />
+                  العودة للمنصة
+                </button>
                 <button onClick={() => setMode("audio")} className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-black">
                   الصوتيات
                 </button>
