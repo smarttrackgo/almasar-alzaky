@@ -204,7 +204,7 @@ export const adminStatement = query({
         const netAmount  = comm?.netAmount ?? b.netAmount ?? (officeBaseAmount - commAmount);
         const platformRevenue = b.platformRevenue ?? (passengerFeeAmount + commAmount);
         const commStatus = comm?.status ?? "no_commission";
-        const officeTax = splitInclusiveVat(officeBaseAmount);
+        const officeTax = splitInclusiveVat(b.totalPrice);
         const platformTax = splitInclusiveVat(platformRevenue);
 
         return {
@@ -214,6 +214,8 @@ export const adminStatement = query({
           bookingStatus:    b.status,
           passengerName:    b.leadPassengerName,
           adultsCount:      b.adultsCount,
+          childrenCount:    b.childrenCount ?? 0,
+          passengerCount:   b.adultsCount + (b.childrenCount ?? 0),
           officeName:       office?.name ?? "—",
           officeId:         b.officeId,
           packageTitle:     pkg?.title ?? "—",
@@ -329,7 +331,7 @@ export const officeStatement = query({
         const commAmount = b.commissionAmount ?? Math.round((officeBaseAmount * commRate) / 100);
         const netAmount  = b.netAmount        ?? (officeBaseAmount - commAmount);
         const platformRevenue = b.platformRevenue ?? (passengerFeeAmount + commAmount);
-        const officeTax = splitInclusiveVat(officeBaseAmount);
+        const officeTax = splitInclusiveVat(b.totalPrice);
         const platformTax = splitInclusiveVat(platformRevenue);
 
         // جلب حالة العمولة من جدول commissions إن وُجد
@@ -346,6 +348,8 @@ export const officeStatement = query({
           bookingStatus:    b.status,
           passengerName:    b.leadPassengerName,
           adultsCount:      b.adultsCount,
+          childrenCount:    b.childrenCount ?? 0,
+          passengerCount:   b.adultsCount + (b.childrenCount ?? 0),
           packageTitle:     pkg?.title ?? "—",
           bookingAmount:    officeBaseAmount,
           officeBaseAmount,
@@ -454,13 +458,16 @@ export const officeStatements = query({
         const netAmount        = comm?.netAmount        ?? b.netAmount ?? null;
         const platformRevenue  = b.platformRevenue ?? (passengerFeeAmount + (commissionAmount ?? 0));
         const commissionStatus = comm?.status           ?? "no_commission";
-        const officeTax = splitInclusiveVat(officeBaseAmount);
+        const officeTax = splitInclusiveVat(b.totalPrice);
         const platformTax = splitInclusiveVat(platformRevenue);
 
         return {
           bookingId:         b._id,
           bookingReference:  b.bookingReference,
           leadPassengerName: b.leadPassengerName,
+          adultsCount:       b.adultsCount,
+          childrenCount:     b.childrenCount ?? 0,
+          passengerCount:    b.adultsCount + (b.childrenCount ?? 0),
           bookingStatus:     b.status,
           createdAt:         b._creationTime,
           packageTitle:      pkg?.title ?? "—",

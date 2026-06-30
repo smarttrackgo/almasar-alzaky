@@ -2462,12 +2462,12 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
     return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
   };
   const totalOfficeVatFallback = rows.reduce((sum: number, row: any) => {
-    const gross = row.officeBaseAmount ?? row.bookingAmount ?? 0;
-    return sum + (row.officeVatAmount ?? splitVat(gross, row.taxRate ?? 15).vatAmount);
+    const gross = row.pilgrimTotalAmount ?? row.officeBaseAmount ?? row.bookingAmount ?? 0;
+    return sum + splitVat(gross, row.taxRate ?? 15).vatAmount;
   }, 0);
 
   const handleOfficeTaxInvoice = (row: any) => {
-    const gross = row.officeBaseAmount ?? row.bookingAmount ?? 0;
+    const gross = row.pilgrimTotalAmount ?? row.officeBaseAmount ?? row.bookingAmount ?? 0;
     const tax = splitVat(gross, row.taxRate ?? 15);
     void printTaxInvoice({
       invoiceNo: row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`,
@@ -2476,12 +2476,13 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
       buyer: { name: row.passengerName, city: "السعودية" },
       bookingRef: row.bookingRef,
       passengerName: row.passengerName,
+      passengerCount: row.passengerCount ?? row.adultsCount,
       packageTitle: row.packageTitle,
       invoiceDate: row.bookingDate,
-      description: "قيمة برنامج العمرة وخدمات المكتب قبل خصم عمولة المنصة",
+      description: "إجمالي قيمة الحجز الكامل حسب رقم الحجز وعدد الركاب",
       grossAmount: gross,
-      taxableAmount: row.officeTaxableAmount ?? tax.taxableAmount,
-      vatAmount: row.officeVatAmount ?? tax.vatAmount,
+      taxableAmount: tax.taxableAmount,
+      vatAmount: tax.vatAmount,
       vatRate: row.taxRate ?? 15,
       notes: "هذه الفاتورة الضريبية مرتبطة بكشف حساب المكتب والحجز الموضح أعلاه.",
     });
@@ -2567,7 +2568,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
               { val: summary.totalBookingAmount.toLocaleString("ar-SA") + " ر.س", lbl: "إجمالي المبيعات", from: "from-blue-500",    to: "to-blue-700" },
               { val: summary.totalCommission.toLocaleString("ar-SA") + " ر.س",   lbl: "إجمالي العمولات", from: "from-amber-500",   to: "to-amber-700" },
               { val: summary.totalNet.toLocaleString("ar-SA") + " ر.س",          lbl: "صافي الربح",      from: "from-purple-500",  to: "to-purple-700" },
-              { val: (summary.totalOfficeVat ?? totalOfficeVatFallback).toLocaleString("ar-SA") + " ر.س", lbl: "ضريبة فواتير المكتب", from: "from-slate-500", to: "to-slate-700" },
+              { val: totalOfficeVatFallback.toLocaleString("ar-SA") + " ر.س", lbl: "ضريبة فواتير المكتب", from: "from-slate-500", to: "to-slate-700" },
             ].map(({ val, lbl, from, to }, i) => (
               <div key={i} className={`bg-gradient-to-br ${from} ${to} rounded-2xl p-5 text-white`}>
                 <div className="text-xl font-black leading-tight">{val}</div>
@@ -2622,7 +2623,10 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
                       <tr key={row.bookingId} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                         <td className="px-4 py-3 text-xs font-mono text-emerald-700 font-bold whitespace-nowrap">{row.bookingRef}</td>
                         <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(row.bookingDate).toLocaleDateString("ar-SA")}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">{row.passengerName}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
+                          <div>{row.passengerName}</div>
+                          <div className="text-xs text-gray-400 font-normal">{row.passengerCount ?? row.adultsCount} راكب داخل الحجز</div>
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{row.packageTitle}</td>
                         <td className="px-4 py-3 text-sm font-bold text-gray-800 whitespace-nowrap">
                           {row.bookingAmount.toLocaleString("ar-SA")} <span className="text-xs text-gray-400">ر.س</span>

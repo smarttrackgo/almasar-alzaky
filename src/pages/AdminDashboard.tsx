@@ -3378,9 +3378,9 @@ function AdminStatementsTab() {
     return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
   };
   const totalVatFallback = rows.reduce((sum: number, r: any) => {
-    const officeGross = r.officeBaseAmount ?? r.bookingAmount ?? 0;
+    const officeGross = r.pilgrimTotalAmount ?? r.officeBaseAmount ?? r.bookingAmount ?? 0;
     const platformGross = r.platformRevenue ?? r.commissionAmount ?? 0;
-    return sum + (r.officeVatAmount ?? splitVat(officeGross, r.taxRate ?? 15).vatAmount) + (r.platformVatAmount ?? splitVat(platformGross, r.taxRate ?? 15).vatAmount);
+    return sum + splitVat(officeGross, r.taxRate ?? 15).vatAmount + (r.platformVatAmount ?? splitVat(platformGross, r.taxRate ?? 15).vatAmount);
   }, 0);
 
   const handlePlatformTaxInvoice = (r: any) => {
@@ -3393,6 +3393,7 @@ function AdminStatementsTab() {
       buyer: { name: r.officeName, commercialRegister: r.officeCommercialRegister, city: "السعودية" },
       bookingRef: r.bookingRef,
       passengerName: r.passengerName,
+      passengerCount: r.passengerCount ?? r.adultsCount,
       packageTitle: r.packageTitle,
       invoiceDate: r.bookingDate,
       description: "عمولة المنصة ومصاريف التشغيل والخدمات المرتبطة بالحجز",
@@ -3405,7 +3406,7 @@ function AdminStatementsTab() {
   };
 
   const handleOfficeTaxInvoice = (r: any) => {
-    const gross = r.officeBaseAmount ?? r.bookingAmount ?? 0;
+    const gross = r.pilgrimTotalAmount ?? r.officeBaseAmount ?? r.bookingAmount ?? 0;
     const tax = splitVat(gross, r.taxRate ?? 15);
     void printTaxInvoice({
       invoiceNo: r.officeInvoiceNo ?? `OFF-TAX-${r.bookingRef}`,
@@ -3414,12 +3415,13 @@ function AdminStatementsTab() {
       buyer: { name: r.passengerName, city: "السعودية" },
       bookingRef: r.bookingRef,
       passengerName: r.passengerName,
+      passengerCount: r.passengerCount ?? r.adultsCount,
       packageTitle: r.packageTitle,
       invoiceDate: r.bookingDate,
-      description: "قيمة برنامج العمرة وخدمات المكتب قبل خصم عمولة المنصة",
+      description: "إجمالي قيمة الحجز الكامل حسب رقم الحجز وعدد الركاب",
       grossAmount: gross,
-      taxableAmount: r.officeTaxableAmount ?? tax.taxableAmount,
-      vatAmount: r.officeVatAmount ?? tax.vatAmount,
+      taxableAmount: tax.taxableAmount,
+      vatAmount: tax.vatAmount,
       vatRate: r.taxRate ?? 15,
       notes: "هذه الفاتورة تخص قيمة خدمة المكتب للمعتمر وترتبط بنفس سطر كشف الحساب.",
     });
@@ -3531,7 +3533,7 @@ function AdminStatementsTab() {
             </div>
             <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 md:col-span-3">
               <div className="text-xs font-bold text-slate-600 mb-1">ضريبة القيمة المضافة المرتبطة بالكشف</div>
-              <div className="text-2xl font-black text-slate-800">{(summary.totalVat ?? totalVatFallback).toLocaleString("ar-SA")} ر.س</div>
+              <div className="text-2xl font-black text-slate-800">{totalVatFallback.toLocaleString("ar-SA")} ر.س</div>
               <div className="text-xs text-slate-400 mt-1">تشمل ضريبة فواتير المكاتب وضريبة فواتير إيراد المنصة</div>
             </div>
           </div>
@@ -3584,7 +3586,7 @@ function AdminStatementsTab() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="font-semibold text-gray-800 text-xs">{r.passengerName}</div>
-                          <div className="text-gray-400 text-xs">{r.adultsCount} بالغ</div>
+                          <div className="text-gray-400 text-xs">{r.passengerCount ?? r.adultsCount} راكب داخل الحجز</div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-gray-600 text-xs line-clamp-1 max-w-[120px] block">{r.packageTitle}</span>

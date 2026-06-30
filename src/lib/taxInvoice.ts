@@ -16,6 +16,7 @@ type TaxInvoiceInput = {
   buyer: TaxInvoiceParty;
   bookingRef: string;
   passengerName: string;
+  passengerCount?: number;
   packageTitle: string;
   invoiceDate: number;
   description: string;
@@ -107,6 +108,7 @@ export function buildTaxInvoiceHtml(input: TaxInvoiceInput) {
         <h3>بيانات الحجز</h3>
         <div class="line"><span class="lbl">رقم الحجز</span><span class="val">${safe(input.bookingRef)}</span></div>
         <div class="line"><span class="lbl">المعتمر</span><span class="val">${safe(input.passengerName)}</span></div>
+        <div class="line"><span class="lbl">عدد الركاب داخل الحجز</span><span class="val">${safe(input.passengerCount ?? "—")}</span></div>
         <div class="line"><span class="lbl">البرنامج</span><span class="val">${safe(input.packageTitle)}</span></div>
       </div>
       <div class="box">
