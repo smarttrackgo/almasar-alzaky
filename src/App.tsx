@@ -414,7 +414,7 @@ export default function App() {
             {page.name === "signin"           && <SignInPage navigate={navigate} />}
             {page.name === "forgot-password"  && <ForgotPasswordPage navigate={navigate} />}
             {(page.name === "bookings" || page.name === "profile" || page.name === "wallet" ||
-              page.name === "office-dashboard" || page.name === "admin" ||
+              page.name === "office-dashboard" || page.name === "driver-dashboard" || page.name === "admin" ||
               page.name === "payment" || page.name === "booking-detail") && <SignInPage navigate={navigate} />}
           </main>
           <Footer navigate={navigate} />
