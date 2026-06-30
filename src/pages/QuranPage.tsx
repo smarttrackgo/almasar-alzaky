@@ -29,6 +29,7 @@ const RECITERS = [
   { id: "ar.muhammadjibreel",     name: "محمد جبريل",            country: "مصر",      flag: "🇪🇬", style: "مرتل",  color: "from-lime-700 to-emerald-950" },
   { id: "ar.aymanswoaid",         name: "أيمن سويد",             country: "سوريا",    flag: "🇸🇾", style: "تعليمي", color: "from-stone-700 to-stone-950" },
   { id: "ar.abdullahbasfar",      name: "عبد الله بصفر",         country: "السعودية", flag: "🇸🇦", style: "مرتل",  color: "from-red-700 to-red-950" },
+  { id: "everyayah.banna",        name: "محمود علي البنا",        country: "مصر",      flag: "🇪🇬", style: "مرتل",  color: "from-yellow-700 to-orange-950", everyayahFolder: "mahmoud_ali_al_banna_32kbps" },
 ];
 
 /* ══════════════════════════════════════════════
@@ -153,9 +154,19 @@ const SURAHS = [
 
 const JUZS = Array.from({ length: 30 }, (_, i) => i + 1);
 type FilterMode = "all" | "makki" | "madani" | "juz";
-type QuranMode = "audio" | "video" | "meanings";
+type QuranMode = "audio" | "video" | "meanings" | "reading";
 
 type MeaningAyah = {
+  numberInSurah: number;
+  text: string;
+};
+
+type AudioTrack = {
+  ayah: number;
+  url: string;
+};
+
+type ReadingAyah = {
   numberInSurah: number;
   text: string;
 };
@@ -186,10 +197,20 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const [meanings, setMeanings] = useState<MeaningAyah[]>([]);
   const [meaningsLoading, setMeaningsLoading] = useState(false);
   const [meaningsError, setMeaningsError] = useState("");
+  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
+  const [audioTrackIndex, setAudioTrackIndex] = useState(0);
+  const [audioError, setAudioError] = useState("");
+  const [readingAyahs, setReadingAyahs] = useState<ReadingAyah[]>([]);
+  const [readingPage, setReadingPage] = useState(0);
+  const [readingLoading, setReadingLoading] = useState(false);
+  const [readingError, setReadingError] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const audioUrl = `https://cdn.islamic.network/quran/audio-surah/128/${selectedReciter.id}/${selectedSurah.num}.mp3`;
   const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${selectedReciter.name} سورة ${selectedSurah.name} تلاوة مرئية`)}`;
+
+  const readingPages = Array.from({ length: Math.ceil(readingAyahs.length / 8) }, (_, i) =>
+    readingAyahs.slice(i * 8, i * 8 + 8)
+  );
 
   const filteredSurahs = SURAHS.filter(s => {
     const matchSearch = s.name.includes(search) || String(s.num).includes(search);
@@ -205,18 +226,68 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   );
 
   useEffect(() => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    audioRef.current.src = audioUrl;
+    const controller = new AbortController();
+    const wasPlaying = isPlaying;
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.removeAttribute("src");
+      audioRef.current.load();
+    }
+
+    setIsPlaying(false);
+    setIsLoading(true);
+    setAudioError("");
+    setAudioTracks([]);
+    setAudioTrackIndex(0);
     setCurrentTime(0);
     setDuration(0);
-    if (isPlaying) {
-      setIsLoading(true);
-      audioRef.current.load();
-      audioRef.current.play()
-        .then(() => setIsLoading(false))
-        .catch(() => { setIsPlaying(false); setIsLoading(false); });
+
+    const everyayahFolder = (selectedReciter as any).everyayahFolder;
+    if (everyayahFolder) {
+      const tracks = Array.from({ length: selectedSurah.verses }, (_, i) => {
+        const surah = String(selectedSurah.num).padStart(3, "0");
+        const ayah = String(i + 1).padStart(3, "0");
+        return {
+          ayah: i + 1,
+          url: `https://everyayah.com/data/${everyayahFolder}/${surah}${ayah}.mp3`,
+        };
+      });
+      setAudioTracks(tracks);
+      setIsLoading(false);
+      if (wasPlaying && audioRef.current && tracks[0]) {
+        audioRef.current.src = tracks[0].url;
+        audioRef.current.play().catch(() => setAudioError("تعذر تشغيل هذا القارئ الآن."));
+      }
+      return () => controller.abort();
     }
+
+    fetch(`https://api.alquran.cloud/v1/surah/${selectedSurah.num}/${selectedReciter.id}`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("تعذر تحميل صوت القارئ");
+        return res.json();
+      })
+      .then((payload) => {
+        const tracks: AudioTrack[] = (payload?.data?.ayahs ?? [])
+          .map((ayah: any) => ({ ayah: ayah.numberInSurah, url: ayah.audio }))
+          .filter((track: AudioTrack) => Boolean(track.url));
+        if (tracks.length === 0) throw new Error("لا توجد ملفات صوت لهذا القارئ");
+        setAudioTracks(tracks);
+        if (wasPlaying && audioRef.current) {
+          audioRef.current.src = tracks[0].url;
+          audioRef.current.play().catch(() => setAudioError("تعذر تشغيل هذا القارئ الآن."));
+        }
+      })
+      .catch((err) => {
+        if (err?.name !== "AbortError") {
+          setAudioError("تعذر تحميل صوت هذا القارئ. جرّب قارئًا آخر.");
+        }
+      })
+      .finally(() => setIsLoading(false));
+
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedReciter.id, selectedSurah.num]);
 
@@ -254,19 +325,83 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
     return () => controller.abort();
   }, [mode, selectedSurah.num]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("quranReadingProgress");
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      const savedSurah = SURAHS.find((s) => s.num === parsed.surahNum);
+      if (savedSurah) {
+        setSelectedSurah(savedSurah);
+        setReadingPage(Math.max(0, Number(parsed.page ?? 0)));
+      }
+    } catch {
+      localStorage.removeItem("quranReadingProgress");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "reading") return;
+
+    const controller = new AbortController();
+    setReadingLoading(true);
+    setReadingError("");
+
+    fetch(`https://api.alquran.cloud/v1/surah/${selectedSurah.num}/quran-uthmani`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("تعذر تحميل نص المصحف");
+        return res.json();
+      })
+      .then((payload) => {
+        const ayahs = payload?.data?.ayahs ?? [];
+        setReadingAyahs(
+          ayahs.map((ayah: any) => ({
+            numberInSurah: ayah.numberInSurah,
+            text: ayah.text,
+          }))
+        );
+        const saved = localStorage.getItem("quranReadingProgress");
+        const savedPage = saved ? JSON.parse(saved)?.page : 0;
+        setReadingPage(Number.isFinite(savedPage) && JSON.parse(saved)?.surahNum === selectedSurah.num ? savedPage : 0);
+      })
+      .catch((err) => {
+        if (err?.name !== "AbortError") {
+          setReadingAyahs([]);
+          setReadingError("تعذر تحميل نص السورة الآن.");
+        }
+      })
+      .finally(() => setReadingLoading(false));
+
+    return () => controller.abort();
+  }, [mode, selectedSurah.num]);
+
+  useEffect(() => {
+    if (mode !== "reading") return;
+    localStorage.setItem(
+      "quranReadingProgress",
+      JSON.stringify({ surahNum: selectedSurah.num, page: readingPage })
+    );
+  }, [mode, selectedSurah.num, readingPage]);
+
   const togglePlay = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      if (audioTracks.length === 0) {
+        setAudioError("الصوت لم يجهز بعد. انتظر لحظة أو اختر قارئًا آخر.");
+        return;
+      }
       if (!audioRef.current.src || audioRef.current.src === window.location.href) {
-        audioRef.current.src = audioUrl;
+        audioRef.current.src = audioTracks[audioTrackIndex]?.url ?? audioTracks[0].url;
       }
       setIsLoading(true);
       audioRef.current.play()
         .then(() => { setIsPlaying(true); setIsLoading(false); })
-        .catch(() => { setIsPlaying(false); setIsLoading(false); });
+        .catch(() => { setIsPlaying(false); setIsLoading(false); setAudioError("تعذر تشغيل هذا المقطع."); });
     }
   };
 
@@ -286,8 +421,16 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   };
 
   const handleEnded = () => {
-    if (isRepeat && audioRef.current) {
-      audioRef.current.play();
+    if (!audioRef.current) return;
+    const nextTrackIndex = audioTrackIndex + 1;
+    if (nextTrackIndex < audioTracks.length) {
+      setAudioTrackIndex(nextTrackIndex);
+      audioRef.current.src = audioTracks[nextTrackIndex].url;
+      audioRef.current.play().catch(() => setAudioError("تعذر تشغيل الآية التالية."));
+    } else if (isRepeat) {
+      setAudioTrackIndex(0);
+      audioRef.current.src = audioTracks[0]?.url ?? "";
+      audioRef.current.play().catch(() => setAudioError("تعذر إعادة تشغيل السورة."));
     } else if (autoPlay) {
       nextSurah();
     } else {
@@ -340,9 +483,10 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl bg-white border border-gray-100 p-2 shadow-sm">
+        <div className="mb-5 grid grid-cols-2 md:grid-cols-4 gap-2 rounded-2xl bg-white border border-gray-100 p-2 shadow-sm">
           {[
             { key: "audio" as const, label: "صوتي", Icon: Headphones },
+            { key: "reading" as const, label: "قراءة", Icon: BookOpen },
             { key: "video" as const, label: "مرئي", Icon: Video },
             { key: "meanings" as const, label: "المعاني", Icon: FileText },
           ].map(({ key, label, Icon }) => (
@@ -525,7 +669,87 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
                   ))}
                 </div>
               )}
+              <div className="mt-3 text-center text-xs text-white/60">
+                {audioTracks.length > 0 ? `الآية ${audioTracks[audioTrackIndex]?.ayah ?? 1} من ${selectedSurah.verses}` : "جاري تجهيز صوت القارئ..."}
+              </div>
+              {audioError && (
+                <div className="mt-3 rounded-xl bg-red-500/15 border border-red-300/30 px-3 py-2 text-sm text-red-100 text-center">
+                  {audioError}
+                </div>
+              )}
             </div>
+
+            {mode === "reading" && (
+              <div className="bg-[#f7f0df] rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+                <div className="bg-gradient-to-l from-amber-800 to-stone-900 text-white px-5 py-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-amber-200 text-xs font-bold mb-1">
+                      <BookOpen className="w-4 h-4" />
+                      مصحف القراءة
+                    </div>
+                    <h2 className="font-black text-xl">سورة {selectedSurah.name}</h2>
+                  </div>
+                  <div className="text-xs bg-white/15 rounded-full px-3 py-1 font-bold">
+                    محفوظ تلقائيًا
+                  </div>
+                </div>
+
+                <div className="p-4 md:p-6">
+                  {readingLoading && (
+                    <div className="py-16 flex flex-col items-center justify-center text-amber-800">
+                      <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                      <p className="text-sm font-bold">جاري فتح المصحف...</p>
+                    </div>
+                  )}
+
+                  {readingError && !readingLoading && (
+                    <div className="rounded-xl bg-red-50 border border-red-100 p-4 text-red-700 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm font-bold">{readingError}</p>
+                    </div>
+                  )}
+
+                  {!readingLoading && !readingError && readingPages.length > 0 && (
+                    <>
+                      <div className="relative mx-auto max-w-3xl min-h-[460px] rounded-r-[28px] rounded-l-lg bg-[#fffaf0] shadow-2xl border border-amber-200 px-5 py-7 md:px-10 md:py-9 transition-transform duration-300 [transform-style:preserve-3d]">
+                        <div className="absolute inset-y-5 right-3 w-1 rounded-full bg-amber-900/20" />
+                        <div className="text-center border-b border-amber-200 pb-4 mb-5">
+                          <div className="text-xs text-amber-700 font-bold">صفحة {readingPage + 1} من {readingPages.length}</div>
+                          <h3 className="text-2xl font-black text-stone-900 mt-1">سورة {selectedSurah.name}</h3>
+                        </div>
+                        <div className="space-y-4 text-right" dir="rtl">
+                          {readingPages[readingPage].map((ayah) => (
+                            <p key={ayah.numberInSurah} className="text-2xl leading-[2.4] text-stone-900 font-serif">
+                              {ayah.text}
+                              <span className="inline-flex mx-2 w-7 h-7 rounded-full border border-amber-500 text-amber-800 text-xs items-center justify-center align-middle">
+                                {ayah.numberInSurah}
+                              </span>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-3">
+                        <button
+                          onClick={() => setReadingPage((p) => Math.max(0, p - 1))}
+                          disabled={readingPage === 0}
+                          className="px-5 py-3 rounded-xl bg-white border border-amber-200 text-amber-800 font-black disabled:opacity-40"
+                        >
+                          الصفحة السابقة
+                        </button>
+                        <button
+                          onClick={() => setReadingPage((p) => Math.min(readingPages.length - 1, p + 1))}
+                          disabled={readingPage >= readingPages.length - 1}
+                          className="px-5 py-3 rounded-xl bg-amber-700 text-white font-black disabled:opacity-40"
+                        >
+                          الصفحة التالية
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {mode === "video" && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
