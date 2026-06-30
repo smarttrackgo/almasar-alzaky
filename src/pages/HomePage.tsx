@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
 import PackageCard from "../components/PackageCard";
+import { SAUDI_CITIES } from "../lib/saudiCities";
 import {
   Search, MapPin, SlidersHorizontal, ShieldCheck, BadgeDollarSign,
   HeartHandshake, BookOpen, BookMarked, Map, ChevronLeft, Star, Award, Clock, Compass,
@@ -21,8 +22,6 @@ const TYPES = [
   { value: "ramadan",  label: "رمضان" },
   { value: "family",   label: "عائلي" },
 ];
-
-const CITIES = ["الرياض", "جدة", "الدمام", "مكة المكرمة", "المدينة المنورة", "أبها", "تبوك"];
 
 const SPIRITUAL_SERVICES: Array<{
   icon: React.ElementType;
@@ -193,7 +192,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                   className="w-full pr-9 pl-3 py-3 rounded-xl bg-white text-gray-800 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none"
                 >
                   <option value="">مدينة الانطلاق</option>
-                  {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {SAUDI_CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="relative">
