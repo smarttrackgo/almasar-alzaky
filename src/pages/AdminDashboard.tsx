@@ -2907,14 +2907,19 @@ function AdminCommissionsTab() {
   const commList       = useQuery(api.commissions.adminList);
   const offices        = useQuery(api.admin.getAllOffices);
   const defaultRate    = useQuery(api.commissions.getDefaultRate);
+  const defaultPassengerRate = useQuery((api as any).commissions.getDefaultPassengerRate);
   const settle         = useMutation(api.commissions.settle);
   const settleAll      = useMutation(api.commissions.settleAllForOffice);
   const updateDefault  = useMutation(api.commissions.updateDefaultRate);
   const updateOffice   = useMutation(api.commissions.updateOfficeRate);
+  const updateDefaultPassenger = useMutation((api as any).commissions.updateDefaultPassengerRate);
+  const updateOfficePassenger  = useMutation((api as any).commissions.updateOfficePassengerRate);
   const syncComm       = useMutation(api.commissions.syncAllCommissions);
 
   const [newDefaultRate, setNewDefaultRate] = useState<string>("");
+  const [newDefaultPassengerRate, setNewDefaultPassengerRate] = useState<string>("");
   const [officeRates, setOfficeRates]       = useState<Record<string, string>>({});
+  const [officePassengerRates, setOfficePassengerRates] = useState<Record<string, string>>({});
   const [savingRate, setSavingRate]         = useState(false);
   const [filterStatus, setFilterStatus]    = useState<string>("all");
   const [syncing, setSyncing]              = useState(false);
@@ -2961,6 +2966,28 @@ function AdminCommissionsTab() {
     try {
       await updateOffice({ officeId, rate });
       toast.success(`✅ تم تحديث نسبة مكتب "${officeName}"`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "حدث خطأ"); }
+  };
+
+  const handleSaveDefaultPassengerRate = async () => {
+    const rate = parseFloat(newDefaultPassengerRate);
+    if (isNaN(rate)) { toast.error("أدخل نسبة مصاريف تشغيل صحيحة"); return; }
+    setSavingRate(true);
+    try {
+      await updateDefaultPassenger({ rate });
+      toast.success("✅ تم تحديث نسبة مصاريف التشغيل الافتراضية للمعتمر");
+      setNewDefaultPassengerRate("");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "حدث خطأ"); }
+    finally { setSavingRate(false); }
+  };
+
+  const handleSaveOfficePassengerRate = async (officeId: any, officeName: string) => {
+    const val = officePassengerRates[officeId];
+    const rate = val === "" ? undefined : parseFloat(val);
+    if (rate !== undefined && isNaN(rate)) { toast.error("أدخل نسبة مصاريف تشغيل صحيحة"); return; }
+    try {
+      await updateOfficePassenger({ officeId, rate });
+      toast.success(`✅ تم تحديث نسبة مصاريف تشغيل المعتمر لمكتب "${officeName}"`);
     } catch (e) { toast.error(e instanceof Error ? e.message : "حدث خطأ"); }
   };
 
@@ -3068,6 +3095,32 @@ function AdminCommissionsTab() {
       {/* نسب المكاتب */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-5 border-b border-gray-100">
+          <div className="mb-4 rounded-2xl bg-amber-50 border border-amber-100 p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="font-black text-amber-800 text-sm">نسبة مصاريف التشغيل والخدمات على المعتمر</h3>
+                <p className="text-xs text-amber-700 mt-1">تضاف على سعر المكتب وتظهر للمعتمر كجزء من الإجمالي.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-2 rounded-xl bg-white border border-amber-200 text-amber-700 font-black">{defaultPassengerRate ?? "—"}%</div>
+                <input
+                  type="number"
+                  value={newDefaultPassengerRate}
+                  onChange={(e) => setNewDefaultPassengerRate(e.target.value)}
+                  placeholder="0-50"
+                  min={0} max={50} step={0.5}
+                  className="w-24 px-2 py-2 rounded-lg border-2 border-amber-200 text-sm focus:outline-none focus:border-amber-500 text-center"
+                />
+                <button
+                  onClick={handleSaveDefaultPassengerRate}
+                  disabled={savingRate || !newDefaultPassengerRate}
+                  className="px-3 py-2 rounded-lg bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 disabled:opacity-50"
+                >
+                  حفظ
+                </button>
+              </div>
+            </div>
+          </div>
           <h3 className="font-bold text-gray-800 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-blue-600" />
             نسب عمولة المكاتب
@@ -3127,6 +3180,58 @@ function AdminCommissionsTab() {
       </div>
 
       {/* قائمة العمولات */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100">
+          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-amber-600" />
+            تقسيم النسب لكل مكتب
+          </h3>
+          <p className="text-xs text-gray-400 mt-0.5">الأخضر يخصم من سعر المكتب، والذهبي يضاف للمعتمر كمصاريف تشغيل وخدمات.</p>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {offices.map((o: any) => (
+            <div key={`split-${o._id}`} className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-3 items-center">
+              <div>
+                <div className="font-bold text-gray-800 text-sm">{o.name}</div>
+                <div className="text-xs text-gray-400">{o.city}</div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
+                  المكتب: {o.commissionRate !== undefined ? `${o.commissionRate}% خاص` : `${defaultRate}% افتراضي`}
+                </span>
+                <input
+                  type="number"
+                  value={officeRates[o._id] ?? ""}
+                  onChange={(e) => setOfficeRates((r) => ({ ...r, [o._id]: e.target.value }))}
+                  placeholder={`${defaultRate}%`}
+                  min={0} max={50} step={0.5}
+                  className="w-24 px-2 py-1.5 rounded-lg border-2 border-emerald-200 text-sm focus:outline-none focus:border-emerald-500 text-center"
+                />
+                <button onClick={() => handleSaveOfficeRate(o._id, o.name)} className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold text-xs hover:bg-emerald-200">
+                  حفظ المكتب
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">
+                  المعتمر: {o.passengerCommissionRate !== undefined ? `${o.passengerCommissionRate}% خاص` : `${defaultPassengerRate ?? 0}% افتراضي`}
+                </span>
+                <input
+                  type="number"
+                  value={officePassengerRates[o._id] ?? ""}
+                  onChange={(e) => setOfficePassengerRates((r) => ({ ...r, [o._id]: e.target.value }))}
+                  placeholder={`${defaultPassengerRate ?? 0}%`}
+                  min={0} max={50} step={0.5}
+                  className="w-24 px-2 py-1.5 rounded-lg border-2 border-amber-200 text-sm focus:outline-none focus:border-amber-500 text-center"
+                />
+                <button onClick={() => handleSaveOfficePassengerRate(o._id, o.name)} className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 font-bold text-xs hover:bg-amber-200">
+                  حفظ المعتمر
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
           <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -3354,6 +3459,23 @@ function AdminStatementsTab() {
             تفاصيل الكشف ({rows.length} حجز)
           </h3>
         </div>
+
+        {summary && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 border-b border-gray-100">
+            <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
+              <div className="text-xs font-bold text-blue-500 mb-1">إجمالي ما دفعه المعتمرون</div>
+              <div className="text-2xl font-black text-blue-800">{(summary.totalPilgrimAmount ?? summary.totalBookingAmount).toLocaleString("ar-SA")} ر.س</div>
+            </div>
+            <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4">
+              <div className="text-xs font-bold text-amber-600 mb-1">مصاريف تشغيل وخدمات المعتمرين</div>
+              <div className="text-2xl font-black text-amber-800">{(summary.totalPassengerFees ?? 0).toLocaleString("ar-SA")} ر.س</div>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
+              <div className="text-xs font-bold text-emerald-600 mb-1">إجمالي إيراد المنصة</div>
+              <div className="text-2xl font-black text-emerald-800">{(summary.totalPlatformRevenue ?? summary.totalCommission).toLocaleString("ar-SA")} ر.س</div>
+            </div>
+          </div>
+        )}
 
         {data === undefined ? (
           <div className="flex items-center justify-center py-16">
