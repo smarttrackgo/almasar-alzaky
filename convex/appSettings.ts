@@ -82,6 +82,7 @@ const DEFAULT_SETTINGS = [
   { key: "payment_method_google",label: "تفعيل Google Pay",           type: "toggle",   value: "true" },
   { key: "payment_method_bank",  label: "تفعيل تحويل بنكي",          type: "toggle",   value: "false" },
   { key: "payment_instructions", label: "تعليمات الدفع للمعتمر",      type: "textarea", value: "" },
+  { key: "passenger_commission_rate", label: "نسبة إضافة المعتمر على السعر", type: "text", value: "0" },
   // ── صور طرق الدفع ──
   { key: "payment_img_mada",    label: "صورة مدى",            type: "image", value: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Mada_Logo.svg/320px-Mada_Logo.svg.png" },
   { key: "payment_img_stc",     label: "صورة STC Pay",        type: "image", value: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/STC_Pay_Logo.svg/320px-STC_Pay_Logo.svg.png" },

@@ -20,6 +20,7 @@ const applicationTables = {
     commercialRegister: v.optional(v.string()),
     adminNotes: v.optional(v.string()),
     commissionRate: v.optional(v.number()),
+    passengerCommissionRate: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
   packages: defineTable({
@@ -64,6 +65,10 @@ const applicationTables = {
     bookingReference: v.string(),
     permitNumber: v.optional(v.string()),
     tripId: v.optional(v.id("trips")),
+    officeBaseAmount: v.optional(v.number()),
+    passengerFeeRate: v.optional(v.number()),
+    passengerFeeAmount: v.optional(v.number()),
+    platformRevenue: v.optional(v.number()),
     commissionRate: v.optional(v.number()),
     commissionAmount: v.optional(v.number()),
     netAmount: v.optional(v.number()),

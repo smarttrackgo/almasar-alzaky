@@ -340,6 +340,10 @@ export default function PaymentPage({
         </div>
 
         {/* ── خيار الدفع من المحفظة ── */}
+        <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-xs font-bold text-amber-700 mb-4">
+          الإجمالي شامل مصاريف تشغيل وخدمات المنصة.
+        </div>
+
         {walletBalance > 0 && (
           <div
             onClick={() => setUseWallet(!useWallet)}

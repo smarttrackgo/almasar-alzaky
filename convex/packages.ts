@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { calculatePackagePricing } from "./pricing";
 
 export const list = query({
   args: {
@@ -15,7 +16,16 @@ export const list = query({
     if (args.packageType) filtered = filtered.filter((p) => p.packageType === args.packageType);
     if (args.maxPrice) filtered = filtered.filter((p) => p.price <= args.maxPrice!);
     return await Promise.all(
-      filtered.map(async (pkg) => ({ ...pkg, office: await ctx.db.get(pkg.officeId) }))
+      filtered.map(async (pkg) => {
+        const pricing = await calculatePackagePricing(ctx, pkg.officeId, pkg.price);
+        return {
+          ...pkg,
+          officePrice: pkg.price,
+          price: pricing.displayPrice,
+          pricing,
+          office: await ctx.db.get(pkg.officeId),
+        };
+      })
     );
   },
 });
@@ -124,7 +134,15 @@ export const getById = query({
         return { ...r, userName: user?.name ?? "مجهول" };
       })
     );
-    return { ...pkg, office, reviews: reviewsWithUsers };
+    const pricing = await calculatePackagePricing(ctx, pkg.officeId, pkg.price);
+    return {
+      ...pkg,
+      officePrice: pkg.price,
+      price: pricing.displayPrice,
+      pricing,
+      office,
+      reviews: reviewsWithUsers,
+    };
   },
 });
 

@@ -323,6 +323,7 @@ export default function PackageDetailPage({
             <div className="sticky top-24">
               <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden anim-scale-in">
                 <div className="bg-gradient-to-br from-emerald-800 to-emerald-900 p-5 text-white">
+                  <div className="text-amber-200 text-xs font-bold mb-1">يشمل مصاريف تشغيل وخدمات المنصة</div>
                   <div className="text-3xl font-black">{pkg.price.toLocaleString("ar-SA")} <span className="text-base font-semibold text-emerald-200">ر.س</span></div>
                   <div className="text-emerald-300 text-sm">للشخص الواحد</div>
                   {pkg.originalPrice && (
@@ -452,6 +453,10 @@ export default function PackageDetailPage({
                             <span className="font-semibold">{(pkg.price * 0.5 * children).toLocaleString("ar-SA")} ر.س</span>
                           </div>
                         )}
+                        <div className="flex justify-between text-amber-700 bg-amber-50 rounded-lg px-2 py-1.5">
+                          <span className="font-bold">مصاريف تشغيل وخدمات المنصة</span>
+                          <span className="font-semibold">مشمولة في الإجمالي</span>
+                        </div>
                         <div className="flex justify-between font-black text-emerald-800 border-t border-emerald-200 pt-2 mt-1">
                           <span>الإجمالي</span>
                           <span>{totalPrice.toLocaleString("ar-SA")} ر.س</span>

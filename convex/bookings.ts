@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal, api } from "./_generated/api";
+import { calculateBookingPricing, getOfficeCommissionRate, getPassengerFeeRate } from "./pricing";
 
 function generateRef(): string {
   return "MSR-" + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -9,13 +10,7 @@ function generateRef(): string {
 
 // ── جلب نسبة العمولة الفعّالة لمكتب ──
 async function getEffectiveRate(ctx: any, officeId: string): Promise<number> {
-  const office = await ctx.db.get(officeId);
-  if (office?.commissionRate !== undefined) return office.commissionRate;
-  const setting = await ctx.db
-    .query("appSettings")
-    .withIndex("by_key", (q: any) => q.eq("key", "commission_rate"))
-    .unique();
-  return setting ? parseFloat(setting.value) : 5;
+  return await getOfficeCommissionRate(ctx, officeId);
 }
 
 export const create = mutation({
@@ -45,21 +40,23 @@ export const create = mutation({
       throw new ConvexError("يرجى إكمال بيانات المعتمر الأساسية في الملف الشخصي أولاً");
     }
 
-    const totalPrice =
-      pkg.price * args.adultsCount +
-      pkg.price * 0.5 * (args.childrenCount ?? 0);
-
-    const commissionRate   = await getEffectiveRate(ctx, pkg.officeId);
-    const commissionAmount = Math.round((totalPrice * commissionRate) / 100);
-    const netAmount        = totalPrice - commissionAmount;
-    const bookingRef       = generateRef();
+    const commissionRate = await getEffectiveRate(ctx, pkg.officeId);
+    const passengerFeeRate = await getPassengerFeeRate(ctx, pkg.officeId);
+    const pricing = calculateBookingPricing(
+      pkg.price,
+      args.adultsCount,
+      args.childrenCount,
+      commissionRate,
+      passengerFeeRate,
+    );
+    const bookingRef = generateRef();
 
     const bookingId = await ctx.db.insert("bookings", {
       packageId:             args.packageId,
       officeId:              pkg.officeId,
       userId,
       status:                "pending",
-      totalPrice,
+      totalPrice:            pricing.totalPrice,
       adultsCount:           args.adultsCount,
       childrenCount:         args.childrenCount,
       leadPassengerName,
@@ -67,9 +64,13 @@ export const create = mutation({
       leadPassengerIdNumber,
       notes:                 args.notes,
       bookingReference:      bookingRef,
+      officeBaseAmount:      pricing.officeBaseAmount,
+      passengerFeeRate:      pricing.passengerFeeRate,
+      passengerFeeAmount:    pricing.passengerFeeAmount,
+      platformRevenue:       pricing.platformRevenue,
       commissionRate,
-      commissionAmount,
-      netAmount,
+      commissionAmount:      pricing.officeCommissionAmount,
+      netAmount:             pricing.officeNetAmount,
     });
 
     await ctx.db.patch(args.packageId, {
@@ -106,7 +107,7 @@ export const create = mutation({
       passengerName:  leadPassengerName,
       bookingRef,
       packageTitle:   pkg.title,
-      totalPrice,
+      totalPrice:     pricing.totalPrice,
       departureDate:  departureDateStr,
     });
 
@@ -260,21 +261,23 @@ export const adminCreateBooking = mutation({
     const pkg = await ctx.db.get(args.packageId);
     if (!pkg) throw new ConvexError("البرنامج غير موجود");
 
-    const totalPrice =
-      pkg.price * args.adultsCount +
-      pkg.price * 0.5 * (args.childrenCount ?? 0);
-
-    const commissionRate   = await getEffectiveRate(ctx, pkg.officeId);
-    const commissionAmount = Math.round((totalPrice * commissionRate) / 100);
-    const netAmount        = totalPrice - commissionAmount;
-    const bookingRef       = generateRef();
+    const commissionRate = await getEffectiveRate(ctx, pkg.officeId);
+    const passengerFeeRate = await getPassengerFeeRate(ctx, pkg.officeId);
+    const pricing = calculateBookingPricing(
+      pkg.price,
+      args.adultsCount,
+      args.childrenCount,
+      commissionRate,
+      passengerFeeRate,
+    );
+    const bookingRef = generateRef();
 
     const bookingId = await ctx.db.insert("bookings", {
       packageId:             args.packageId,
       officeId:              pkg.officeId,
       userId:                args.userId,
       status:                args.status ?? "confirmed",
-      totalPrice,
+      totalPrice:            pricing.totalPrice,
       adultsCount:           args.adultsCount,
       childrenCount:         args.childrenCount,
       leadPassengerName:     args.leadPassengerName,
@@ -282,9 +285,13 @@ export const adminCreateBooking = mutation({
       leadPassengerIdNumber: args.leadPassengerIdNumber,
       notes:                 args.notes,
       bookingReference:      bookingRef,
+      officeBaseAmount:      pricing.officeBaseAmount,
+      passengerFeeRate:      pricing.passengerFeeRate,
+      passengerFeeAmount:    pricing.passengerFeeAmount,
+      platformRevenue:       pricing.platformRevenue,
       commissionRate,
-      commissionAmount,
-      netAmount,
+      commissionAmount:      pricing.officeCommissionAmount,
+      netAmount:             pricing.officeNetAmount,
     });
 
     if (pkg.availableSeats >= args.adultsCount) {
@@ -394,12 +401,13 @@ export const updateStatus = mutation({
         .unique();
       if (!existing) {
         const rate             = booking.commissionRate ?? await getEffectiveRate(ctx, booking.officeId);
-        const commissionAmount = Math.round((booking.totalPrice * rate) / 100);
-        const netAmount        = booking.totalPrice - commissionAmount;
+        const bookingAmount    = booking.officeBaseAmount ?? booking.totalPrice;
+        const commissionAmount = Math.round((bookingAmount * rate) / 100);
+        const netAmount        = bookingAmount - commissionAmount;
         await ctx.db.insert("commissions", {
           bookingId:        args.bookingId,
           officeId:         booking.officeId,
-          bookingAmount:    booking.totalPrice,
+          bookingAmount,
           commissionRate:   rate,
           commissionAmount,
           netAmount,
