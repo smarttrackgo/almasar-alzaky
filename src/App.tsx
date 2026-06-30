@@ -343,6 +343,8 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(() => {
     const path = window.location.pathname;
     if (path.startsWith("/verify/")) return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("attendance") === "1" && params.get("ref")) return false;
     const seen = sessionStorage.getItem("splashSeen");
     return !seen;
   });
@@ -377,6 +379,13 @@ export default function App() {
     });
     setMenuOpen(false);
   }, []);
+
+  const attendanceRef = new URLSearchParams(window.location.search).get("ref");
+  const isAttendanceLink = new URLSearchParams(window.location.search).get("attendance") === "1" && attendanceRef;
+
+  if (isAttendanceLink) {
+    return <AttendanceLinkPage bookingReference={attendanceRef} navigate={navigate} />;
+  }
 
   return (
     <>
