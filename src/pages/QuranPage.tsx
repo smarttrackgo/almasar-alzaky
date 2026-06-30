@@ -154,7 +154,7 @@ const SURAHS = [
 
 const JUZS = Array.from({ length: 30 }, (_, i) => i + 1);
 type FilterMode = "all" | "makki" | "madani" | "juz";
-type QuranMode = "audio" | "video" | "meanings" | "reading";
+type QuranMode = "mushaf" | "audio" | "video" | "meanings" | "reading";
 
 type MeaningAyah = {
   numberInSurah: number;
@@ -193,7 +193,7 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const [isRepeat,    setIsRepeat]    = useState(false);
   const [autoPlay,    setAutoPlay]    = useState(false);
   const [reciterSearch, setReciterSearch] = useState("");
-  const [mode, setMode] = useState<QuranMode>("audio");
+  const [mode, setMode] = useState<QuranMode>("mushaf");
   const [meanings, setMeanings] = useState<MeaningAyah[]>([]);
   const [meaningsLoading, setMeaningsLoading] = useState(false);
   const [meaningsError, setMeaningsError] = useState("");
@@ -204,6 +204,11 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const [readingPage, setReadingPage] = useState(0);
   const [readingLoading, setReadingLoading] = useState(false);
   const [readingError, setReadingError] = useState("");
+  const [mushafPage, setMushafPage] = useState(() => {
+    const saved = Number(localStorage.getItem("mushafPage") ?? "1");
+    return Number.isFinite(saved) && saved >= 1 && saved <= 604 ? saved : 1;
+  });
+  const [mushafLoaded, setMushafLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${selectedReciter.name} سورة ${selectedSurah.name} تلاوة مرئية`)}`;
@@ -211,6 +216,7 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const readingPages = Array.from({ length: Math.ceil(readingAyahs.length / 8) }, (_, i) =>
     readingAyahs.slice(i * 8, i * 8 + 8)
   );
+  const mushafImageUrl = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${String(mushafPage).padStart(3, "0")}.png`;
 
   const filteredSurahs = SURAHS.filter(s => {
     const matchSearch = s.name.includes(search) || String(s.num).includes(search);
@@ -385,6 +391,11 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
     );
   }, [mode, selectedSurah.num, readingPage]);
 
+  useEffect(() => {
+    localStorage.setItem("mushafPage", String(mushafPage));
+    setMushafLoaded(false);
+  }, [mushafPage]);
+
   const togglePlay = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
@@ -462,6 +473,78 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
+      {mode === "mushaf" ? (
+        <div className="min-h-screen bg-[#ede3c8]">
+          <div className="sticky top-0 z-20 bg-stone-950/95 text-white border-b border-amber-800/30">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+              <div>
+                <h1 className="font-black text-lg">المصحف الشريف</h1>
+                <p className="text-xs text-amber-200">صفحة {mushafPage} من 604 • محفوظة تلقائيًا</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setMode("audio")} className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-black">
+                  الصوتيات
+                </button>
+                <button onClick={() => setMode("meanings")} className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-black">
+                  المعاني
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-5xl mx-auto px-3 py-5">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <button
+                onClick={() => setMushafPage((p) => Math.max(1, p - 1))}
+                disabled={mushafPage === 1}
+                className="px-4 py-3 rounded-xl bg-white text-stone-800 border border-amber-200 font-black shadow-sm disabled:opacity-40"
+              >
+                الصفحة السابقة
+              </button>
+              <div className="flex items-center gap-2 rounded-xl bg-white border border-amber-200 px-3 py-2 shadow-sm">
+                <span className="text-xs text-stone-500 font-bold">صفحة</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={604}
+                  value={mushafPage}
+                  onChange={(e) => {
+                    const next = Math.min(604, Math.max(1, Number(e.target.value) || 1));
+                    setMushafPage(next);
+                  }}
+                  className="w-16 text-center font-black text-stone-900 outline-none"
+                />
+              </div>
+              <button
+                onClick={() => setMushafPage((p) => Math.min(604, p + 1))}
+                disabled={mushafPage === 604}
+                className="px-4 py-3 rounded-xl bg-amber-800 text-white font-black shadow-sm disabled:opacity-40"
+              >
+                الصفحة التالية
+              </button>
+            </div>
+
+            <div className="relative mx-auto max-w-[760px]">
+              {!mushafLoaded && (
+                <div className="absolute inset-0 z-10 min-h-[70vh] flex items-center justify-center rounded-2xl bg-white/70">
+                  <Loader2 className="w-9 h-9 text-amber-800 animate-spin" />
+                </div>
+              )}
+              <div className="rounded-[18px] bg-[#fdf8ea] p-2 md:p-4 shadow-2xl border border-amber-300 transition-transform duration-300">
+                <img
+                  key={mushafPage}
+                  src={mushafImageUrl}
+                  alt={`صفحة ${mushafPage} من المصحف الشريف`}
+                  onLoad={() => setMushafLoaded(true)}
+                  className={`w-full rounded-xl select-none transition-all duration-300 ${mushafLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.98]"}`}
+                  draggable={false}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* ══ Hero ══ */}
       <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 text-white py-10 px-4">
         <div className="max-w-7xl mx-auto text-center">
@@ -486,7 +569,7 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
         <div className="mb-5 grid grid-cols-2 md:grid-cols-4 gap-2 rounded-2xl bg-white border border-gray-100 p-2 shadow-sm">
           {[
             { key: "audio" as const, label: "صوتي", Icon: Headphones },
-            { key: "reading" as const, label: "قراءة", Icon: BookOpen },
+            { key: "mushaf" as const, label: "المصحف", Icon: BookOpen },
             { key: "video" as const, label: "مرئي", Icon: Video },
             { key: "meanings" as const, label: "المعاني", Icon: FileText },
           ].map(({ key, label, Icon }) => (
@@ -953,6 +1036,8 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
       />
+      </>
+      )}
     </div>
   );
 }
