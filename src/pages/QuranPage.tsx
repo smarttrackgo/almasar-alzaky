@@ -200,6 +200,8 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [audioTrackIndex, setAudioTrackIndex] = useState(0);
   const [audioError, setAudioError] = useState("");
+  const [audioDurations, setAudioDurations] = useState<Record<number, number>>({});
+  const [durationsLoading, setDurationsLoading] = useState(false);
   const [readingAyahs, setReadingAyahs] = useState<ReadingAyah[]>([]);
   const [readingPage, setReadingPage] = useState(0);
   const [readingLoading, setReadingLoading] = useState(false);
@@ -230,6 +232,17 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
   const filteredReciters = RECITERS.filter(r =>
     r.name.includes(reciterSearch) || r.country.includes(reciterSearch)
   );
+
+  const elapsedBeforeCurrentTrack = audioTracks
+    .slice(0, audioTrackIndex)
+    .reduce((sum, track) => sum + (audioDurations[track.ayah] ?? 0), 0);
+  const fullCurrentTime = elapsedBeforeCurrentTrack + currentTime;
+  const knownDurationCount = Object.keys(audioDurations).length;
+  const fullDuration =
+    audioTracks.length > 0 && knownDurationCount >= audioTracks.length
+      ? audioTracks.reduce((sum, track) => sum + (audioDurations[track.ayah] ?? 0), 0)
+      : 0;
+  const fullProgress = fullDuration > 0 ? Math.min(100, (fullCurrentTime / fullDuration) * 100) : 0;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -296,6 +309,50 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedReciter.id, selectedSurah.num]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (audioTracks.length === 0) {
+      setAudioDurations({});
+      setDurationsLoading(false);
+      return;
+    }
+
+    setAudioDurations({});
+    setDurationsLoading(true);
+
+    const loadDuration = (track: AudioTrack) =>
+      new Promise<{ ayah: number; duration: number }>((resolve) => {
+        const audio = new Audio();
+        audio.preload = "metadata";
+        audio.onloadedmetadata = () => resolve({ ayah: track.ayah, duration: audio.duration || 0 });
+        audio.onerror = () => resolve({ ayah: track.ayah, duration: 0 });
+        audio.src = track.url;
+      });
+
+    const run = async () => {
+      const queue = [...audioTracks];
+      const workers = Array.from({ length: Math.min(6, queue.length) }, async () => {
+        while (queue.length > 0 && !cancelled) {
+          const track = queue.shift();
+          if (!track) return;
+          const item = await loadDuration(track);
+          if (!cancelled && item.duration > 0) {
+            setAudioDurations((prev) => ({ ...prev, [item.ayah]: item.duration }));
+          }
+        }
+      });
+      await Promise.all(workers);
+      if (!cancelled) setDurationsLoading(false);
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audioTracks]);
 
   useEffect(() => {
     if (mode !== "meanings") return;
@@ -453,6 +510,33 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
     const t = Number(e.target.value);
     if (audioRef.current) audioRef.current.currentTime = t;
     setCurrentTime(t);
+  };
+
+  const handleFullSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const target = Number(e.target.value);
+    if (fullDuration <= 0 || audioTracks.length === 0 || !audioRef.current) return;
+
+    let acc = 0;
+    let targetIndex = 0;
+    let localTime = target;
+
+    for (let i = 0; i < audioTracks.length; i++) {
+      const trackDuration = audioDurations[audioTracks[i].ayah] ?? 0;
+      if (target <= acc + trackDuration || i === audioTracks.length - 1) {
+        targetIndex = i;
+        localTime = Math.max(0, target - acc);
+        break;
+      }
+      acc += trackDuration;
+    }
+
+    setAudioTrackIndex(targetIndex);
+    setCurrentTime(localTime);
+    audioRef.current.src = audioTracks[targetIndex].url;
+    audioRef.current.currentTime = localTime;
+    if (isPlaying) {
+      audioRef.current.play().catch(() => setAudioError("تعذر الانتقال لهذا الموضع."));
+    }
   };
 
   const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -638,8 +722,9 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
           <div className="lg:col-span-9 space-y-5">
 
             {/* ── المشغل الرئيسي ── */}
-            <div className={`bg-gradient-to-br ${selectedReciter.color} rounded-2xl p-6 text-white shadow-xl`}>
-              <div className="flex items-start justify-between mb-4">
+            <div className={`relative overflow-hidden bg-gradient-to-br ${selectedReciter.color} rounded-2xl p-5 md:p-6 text-white shadow-xl`}>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.20),transparent_35%),linear-gradient(to_bottom,rgba(0,0,0,0),rgba(0,0,0,0.20))]" />
+              <div className="relative flex items-start justify-between mb-5">
                 <div>
                   <div className="text-xs text-white/60 mb-0.5">{selectedReciter.name} • {selectedReciter.style}</div>
                   <div className="text-3xl font-black">سورة {selectedSurah.name}</div>
@@ -653,26 +738,44 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
               </div>
 
               {/* شريط التقدم */}
-              <div className="mb-4">
+              <div className="relative rounded-2xl bg-white/10 border border-white/10 p-4 mb-4 backdrop-blur">
+                <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                  <div className="rounded-xl bg-black/15 px-2 py-2">
+                    <div className="text-[10px] text-white/50 mb-1">وقت القراءة</div>
+                    <div className="font-black text-lg tabular-nums">{formatTime(fullCurrentTime)}</div>
+                  </div>
+                  <div className="rounded-xl bg-black/15 px-2 py-2">
+                    <div className="text-[10px] text-white/50 mb-1">وقت السورة</div>
+                    <div className="font-black text-lg tabular-nums">
+                      {fullDuration > 0 ? formatTime(fullDuration) : durationsLoading ? "..." : "--:--"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-black/15 px-2 py-2">
+                    <div className="text-[10px] text-white/50 mb-1">الآية</div>
+                    <div className="font-black text-lg tabular-nums">
+                      {audioTracks[audioTrackIndex]?.ayah ?? 1} / {selectedSurah.verses}
+                    </div>
+                  </div>
+                </div>
                 <input
                   type="range"
                   min={0}
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                  max={fullDuration || duration || 100}
+                  value={fullDuration > 0 ? fullCurrentTime : currentTime}
+                  onChange={fullDuration > 0 ? handleFullSeek : handleSeek}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
                   style={{
-                    background: `linear-gradient(to left, rgba(255,255,255,0.25) ${100 - progress}%, rgba(251,191,36,0.9) ${100 - progress}%)`
+                    background: `linear-gradient(to left, rgba(255,255,255,0.25) ${100 - (fullDuration > 0 ? fullProgress : progress)}%, rgba(251,191,36,0.95) ${100 - (fullDuration > 0 ? fullProgress : progress)}%)`
                   }}
                 />
-                <div className="flex justify-between text-xs text-white/50 mt-1">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
+                <div className="flex justify-between text-xs text-white/50 mt-2">
+                  <span>زمن الآية: {formatTime(currentTime)}</span>
+                  <span>{duration > 0 ? formatTime(duration) : "0:00"}</span>
                 </div>
               </div>
 
               {/* أزرار التحكم */}
-              <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="relative flex items-center justify-between flex-wrap gap-3">
                 {/* تحكم إضافي */}
                 <div className="flex items-center gap-2">
                   <button
@@ -738,7 +841,7 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
 
               {/* موجة الصوت */}
               {isPlaying && (
-                <div className="flex items-end justify-center gap-0.5 mt-4 h-6">
+                <div className="relative flex items-end justify-center gap-0.5 mt-4 h-6">
                   {Array.from({ length: 28 }, (_, i) => (
                     <div
                       key={i}
@@ -752,11 +855,15 @@ export default function QuranPage({ navigate: _navigate }: { navigate: (p: Page)
                   ))}
                 </div>
               )}
-              <div className="mt-3 text-center text-xs text-white/60">
-                {audioTracks.length > 0 ? `الآية ${audioTracks[audioTrackIndex]?.ayah ?? 1} من ${selectedSurah.verses}` : "جاري تجهيز صوت القارئ..."}
+              <div className="relative mt-3 text-center text-xs text-white/60">
+                {audioTracks.length > 0
+                  ? durationsLoading
+                    ? `يتم تجهيز توقيت السورة الكامل (${knownDurationCount}/${audioTracks.length})`
+                    : "توقيت السورة الكامل جاهز"
+                  : "جاري تجهيز صوت القارئ..."}
               </div>
               {audioError && (
-                <div className="mt-3 rounded-xl bg-red-500/15 border border-red-300/30 px-3 py-2 text-sm text-red-100 text-center">
+                <div className="relative mt-3 rounded-xl bg-red-500/15 border border-red-300/30 px-3 py-2 text-sm text-red-100 text-center">
                   {audioError}
                 </div>
               )}
