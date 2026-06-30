@@ -8,6 +8,7 @@ import EmailTab from "../components/admin/EmailTab";
 import WalletTab from "../components/admin/WalletTab";
 import SMSTab from "../components/admin/SMSTab";
 import { printTaxInvoice } from "../lib/taxInvoice";
+import { printHtml } from "../lib/printDocument";
 import {
   CreditCard,
   LayoutDashboard, Building2, CalendarCheck, Users,
@@ -3343,6 +3344,7 @@ function AdminStatementsTab() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dateFrom, setDateFrom]         = useState<string>("");
   const [dateTo,   setDateTo]           = useState<string>("");
+  const [printMode, setPrintMode]       = useState<"statement" | "platform_invoices" | "office_invoices">("statement");
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
   const officeId = filterOffice !== "all" ? filterOffice as any : undefined;
@@ -3466,6 +3468,277 @@ function AdminStatementsTab() {
       notes: "هذه الفاتورة تخص قيمة خدمة المكتب للمعتمر وترتبط بنفس سطر كشف الحساب.",
     });
   };
+  const moneyPrint = (value: number) => `${Math.round(Number(value) || 0).toLocaleString("ar-SA")} ر.س`;
+  const safePrint = (value: unknown) =>
+    String(value ?? "-")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  const printDate = () => new Date().toLocaleString("ar-SA");
+  const selectedOfficeName = () => filterOffice === "all" ? "جميع المكاتب" : (offices?.find((office: any) => office._id === filterOffice)?.name ?? "مكتب محدد");
+  const selectedStatusName = () => filterStatus === "all" ? "كل الحالات" : (COMM_STATUS[filterStatus]?.label ?? filterStatus);
+  const dateRangeLabel = () => {
+    if (dateFrom && dateTo) return `من ${new Date(dateFrom).toLocaleDateString("ar-SA")} إلى ${new Date(dateTo).toLocaleDateString("ar-SA")}`;
+    if (dateFrom) return `من ${new Date(dateFrom).toLocaleDateString("ar-SA")}`;
+    if (dateTo) return `حتى ${new Date(dateTo).toLocaleDateString("ar-SA")}`;
+    return "كل الفترات";
+  };
+
+  const buildStatementPrintHtml = () => {
+    const totals = rows.reduce((acc: any, r: any) => {
+      acc.bookingAmount += r.bookingAmount ?? bookingGross(r);
+      acc.platformRevenue += r.platformRevenue ?? r.commissionAmount ?? 0;
+      acc.commissionAmount += r.commissionAmount ?? 0;
+      acc.netAmount += r.netAmount ?? 0;
+      acc.vatAmount += splitVat(bookingGross(r), r.taxRate ?? 15).vatAmount + (r.platformVatAmount ?? splitVat(r.platformRevenue ?? r.commissionAmount ?? 0, r.taxRate ?? 15).vatAmount);
+      return acc;
+    }, { bookingAmount: 0, platformRevenue: 0, commissionAmount: 0, netAmount: 0, vatAmount: 0 });
+
+    const tableRows = rows.map((r: any, index: number) => {
+      const status = COMM_STATUS[r.commissionStatus]?.label ?? r.commissionStatus ?? "-";
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td class="mono">${safePrint(r.bookingRef)}</td>
+          <td>${safePrint(r.officeName)}</td>
+          <td>${safePrint(r.passengerName)}</td>
+          <td>${bookingPassengerCount(r).toLocaleString("ar-SA")}</td>
+          <td>${safePrint(r.packageTitle)}</td>
+          <td>${new Date(r.bookingDate).toLocaleDateString("ar-SA")}</td>
+          <td class="num">${moneyPrint(r.bookingAmount ?? bookingGross(r))}</td>
+          <td class="num">${moneyPrint(r.platformRevenue ?? r.commissionAmount ?? 0)}</td>
+          <td class="num">${moneyPrint(r.commissionAmount ?? 0)}</td>
+          <td class="num">${moneyPrint(r.netAmount ?? 0)}</td>
+          <td>${safePrint(status)}</td>
+        </tr>`;
+    }).join("");
+
+    return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>كشف حساب المنصة</title>
+<style>
+  @page{size:A4 landscape;margin:8mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:#f3f4f6;font-family:Tajawal,Arial,sans-serif;color:#111827}
+  .sheet{width:281mm;margin:0 auto;background:#fff;border:1px solid #d1d5db;min-height:190mm}
+  .header{background:#064e3b;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{height:48px;width:48px;object-fit:contain;border-radius:12px;background:#ffffff1f;padding:4px}
+  .brand-title{font-size:18px;font-weight:900}
+  .brand-sub{font-size:11px;color:#d1fae5;margin-top:3px}
+  .title{text-align:left}
+  .title h1{margin:0;font-size:20px}
+  .title p{margin:5px 0 0;color:#d1fae5;font-size:11px}
+  .body{padding:14px 16px}
+  .filters{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .chip{border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;font-size:11px}
+  .chip span{display:block;color:#047857;font-weight:800;margin-bottom:2px}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+  .card{border:1px solid #e5e7eb;border-radius:10px;padding:9px 10px;background:#f9fafb}
+  .card .label{font-size:10px;color:#6b7280;font-weight:800}
+  .card .value{font-size:15px;color:#064e3b;font-weight:900;margin-top:3px}
+  table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb}
+  th{background:#065f46;color:#fff;padding:8px 7px;font-size:10px;text-align:right;white-space:nowrap}
+  td{padding:7px;font-size:10px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  tbody tr:nth-child(even){background:#f9fafb}
+  .num{text-align:left;font-weight:900;white-space:nowrap}
+  .mono{font-family:Consolas,monospace;font-weight:900;color:#065f46}
+  .footer{display:flex;justify-content:space-between;gap:12px;color:#6b7280;font-size:9px;border-top:1px solid #e5e7eb;margin-top:12px;padding-top:10px}
+  @media print{body{background:#fff}.sheet{border:none;width:auto;min-height:auto}}
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div class="brand">
+        <img src="${LOGO}" class="logo" />
+        <div>
+          <div class="brand-title">المسار الذكي</div>
+          <div class="brand-sub">منصة حجز العمرة والنقل</div>
+        </div>
+      </div>
+      <div class="title">
+        <h1>كشف حساب المنصة</h1>
+        <p>تقرير مالي حسب الفلاتر المختارة</p>
+      </div>
+    </div>
+    <div class="body">
+      <div class="filters">
+        <div class="chip"><span>المكتب</span>${safePrint(selectedOfficeName())}</div>
+        <div class="chip"><span>حالة العمولة</span>${safePrint(selectedStatusName())}</div>
+        <div class="chip"><span>الفترة</span>${safePrint(dateRangeLabel())}</div>
+        <div class="chip"><span>تاريخ الطباعة</span>${printDate()}</div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="label">عدد الحجوزات</div><div class="value">${rows.length.toLocaleString("ar-SA")}</div></div>
+        <div class="card"><div class="label">إجمالي الحجوزات</div><div class="value">${moneyPrint(totals.bookingAmount)}</div></div>
+        <div class="card"><div class="label">إيراد المنصة</div><div class="value">${moneyPrint(totals.platformRevenue)}</div></div>
+        <div class="card"><div class="label">ضريبة القيمة المضافة</div><div class="value">${moneyPrint(totals.vatAmount)}</div></div>
+        <div class="card"><div class="label">صافي المكاتب</div><div class="value">${moneyPrint(totals.netAmount)}</div></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>رقم الحجز</th><th>المكتب</th><th>المعتمر</th><th>العدد</th><th>البرنامج</th><th>التاريخ</th>
+            <th>قيمة الحجز</th><th>إيراد المنصة</th><th>العمولة</th><th>صافي المكتب</th><th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <div class="footer">
+        <span>المسار الذكي - كشف حساب المنصة</span>
+        <span>العملة: ريال سعودي</span>
+        <span>تم إنشاء التقرير آليا من لوحة الإدارة</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  };
+
+  const buildInvoiceBatchPrintHtml = (kind: "platform_invoices" | "office_invoices") => {
+    const isPlatform = kind === "platform_invoices";
+    const pages = rows.map((r: any, index: number) => {
+      const gross = isPlatform ? (r.platformRevenue ?? r.commissionAmount ?? 0) : bookingGross(r);
+      const tax = splitVat(gross, r.taxRate ?? 15);
+      const invoiceNo = isPlatform ? (r.platformInvoiceNo ?? `MSR-TAX-${r.bookingRef}`) : (r.officeInvoiceNo ?? `OFF-TAX-${r.bookingRef}`);
+      const sellerName = isPlatform ? "المسار الذكي" : r.officeName;
+      const sellerRegister = isPlatform ? "يضاف من إعدادات المنصة" : r.officeCommercialRegister;
+      const buyerName = isPlatform ? r.officeName : r.passengerName;
+      const title = isPlatform ? "فاتورة ضريبية - إيراد المنصة" : "فاتورة ضريبية - المكتب";
+      const description = isPlatform ? "عمولة المنصة ومصاريف التشغيل والخدمات المرتبطة بالحجز" : "قيمة خدمة المكتب للحجز الكامل حسب رقم الحجز وعدد الركاب";
+      const taxableAmount = isPlatform ? (r.platformTaxableAmount ?? tax.taxableAmount) : tax.taxableAmount;
+      const vatAmount = isPlatform ? (r.platformVatAmount ?? tax.vatAmount) : tax.vatAmount;
+
+      return `
+        <section class="invoice">
+          <div class="inv-header">
+            <div class="brand">
+              <img src="${LOGO}" class="logo" />
+              <div>
+                <div class="brand-title">المسار الذكي</div>
+                <div class="brand-sub">منصة حجز العمرة والنقل</div>
+              </div>
+            </div>
+            <div class="inv-title">
+              <h1>${title}</h1>
+              <p>${safePrint(invoiceNo)}</p>
+            </div>
+          </div>
+          <div class="inv-body">
+            <div class="meta">
+              <div class="box">
+                <h2>بيانات المورد</h2>
+                <div class="line"><span>الاسم</span><strong>${safePrint(sellerName)}</strong></div>
+                <div class="line"><span>السجل التجاري</span><strong>${safePrint(sellerRegister)}</strong></div>
+                <div class="line"><span>الدولة</span><strong>السعودية</strong></div>
+              </div>
+              <div class="box">
+                <h2>بيانات العميل</h2>
+                <div class="line"><span>الاسم</span><strong>${safePrint(buyerName)}</strong></div>
+                <div class="line"><span>رقم الحجز</span><strong class="mono">${safePrint(r.bookingRef)}</strong></div>
+                <div class="line"><span>عدد الركاب</span><strong>${bookingPassengerCount(r).toLocaleString("ar-SA")}</strong></div>
+              </div>
+              <div class="box">
+                <h2>بيانات الفاتورة</h2>
+                <div class="line"><span>التاريخ</span><strong>${new Date(r.bookingDate).toLocaleDateString("ar-SA")}</strong></div>
+                <div class="line"><span>نسبة الضريبة</span><strong>${safePrint(r.taxRate ?? 15)}%</strong></div>
+                <div class="line"><span>الترتيب</span><strong>${index + 1} / ${rows.length}</strong></div>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr><th>الوصف</th><th>قبل الضريبة</th><th>ضريبة القيمة المضافة</th><th>الإجمالي شامل الضريبة</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <strong>${safePrint(description)}</strong>
+                    <small>${safePrint(r.packageTitle)}</small>
+                  </td>
+                  <td class="num">${moneyPrint(taxableAmount)}</td>
+                  <td class="num">${moneyPrint(vatAmount)}</td>
+                  <td class="num">${moneyPrint(gross)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="totals">
+              <div><span>الإجمالي قبل الضريبة</span><strong>${moneyPrint(taxableAmount)}</strong></div>
+              <div><span>ضريبة القيمة المضافة ${safePrint(r.taxRate ?? 15)}%</span><strong>${moneyPrint(vatAmount)}</strong></div>
+              <div><span>الإجمالي شامل الضريبة</span><strong>${moneyPrint(gross)}</strong></div>
+            </div>
+            <div class="note">هذه الفاتورة مرتبطة بكشف حساب المنصة ورقم الحجز ${safePrint(r.bookingRef)}، والمبالغ بالريال السعودي.</div>
+            <div class="inv-footer">
+              <span>تاريخ الطباعة: ${printDate()}</span>
+              <span>${isPlatform ? "فاتورة المنصة" : "فاتورة المكتب"}</span>
+              <span>المسار الذكي</span>
+            </div>
+          </div>
+        </section>`;
+    }).join("");
+
+    return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>${isPlatform ? "فواتير المنصة" : "فواتير المكاتب"}</title>
+<style>
+  @page{size:A4;margin:10mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:#f3f4f6;font-family:Tajawal,Arial,sans-serif;color:#111827}
+  .invoice{width:190mm;min-height:277mm;margin:0 auto 12mm;background:#fff;border:1px solid #d1d5db;page-break-after:always}
+  .invoice:last-child{page-break-after:auto;margin-bottom:0}
+  .inv-header{background:#064e3b;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{height:46px;width:46px;object-fit:contain;border-radius:12px;background:#ffffff1f;padding:4px}
+  .brand-title{font-size:18px;font-weight:900}
+  .brand-sub{font-size:11px;color:#d1fae5;margin-top:3px}
+  .inv-title{text-align:left}
+  .inv-title h1{margin:0;font-size:18px}
+  .inv-title p{margin:5px 0 0;color:#fef3c7;font-size:11px;font-family:Consolas,monospace}
+  .inv-body{padding:18px 22px}
+  .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .box{border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;padding:11px}
+  .box h2{margin:0 0 8px;font-size:12px;color:#065f46}
+  .line{display:flex;justify-content:space-between;gap:10px;font-size:11px;padding:4px 0;border-bottom:1px dashed #e5e7eb}
+  .line:last-child{border-bottom:none}
+  .line span{color:#6b7280;font-weight:800}
+  .line strong{text-align:left}
+  .mono{font-family:Consolas,monospace;color:#065f46}
+  table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;margin-top:12px}
+  th{background:#065f46;color:#fff;padding:10px;font-size:11px;text-align:right}
+  td{padding:11px;font-size:11px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  td small{display:block;color:#6b7280;margin-top:4px;line-height:1.7}
+  .num{text-align:center;font-weight:900;white-space:nowrap}
+  .totals{width:84mm;margin-right:auto;margin-top:14px;border:1px solid #d1fae5;border-radius:12px;overflow:hidden}
+  .totals div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;font-size:12px;border-bottom:1px solid #d1fae5}
+  .totals div:last-child{border-bottom:none;background:#ecfdf5;color:#065f46;font-weight:900;font-size:14px}
+  .note{margin-top:16px;border:1px dashed #d1d5db;border-radius:12px;padding:11px;color:#6b7280;font-size:10px;line-height:1.8}
+  .inv-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;color:#9ca3af;font-size:9px}
+  @media print{body{background:#fff}.invoice{border:none;margin:0;width:auto;min-height:auto}}
+</style>
+</head>
+<body>${pages}</body>
+</html>`;
+  };
+
+  const handlePrintByFilter = () => {
+    if (data === undefined) {
+      toast.error("البيانات ما زالت قيد التحميل");
+      return;
+    }
+    if (rows.length === 0) {
+      toast.error("لا توجد بيانات للطباعة حسب الفلتر الحالي");
+      return;
+    }
+    const html = printMode === "statement" ? buildStatementPrintHtml() : buildInvoiceBatchPrintHtml(printMode);
+    void printHtml(html, { width: printMode === "statement" ? "297mm" : "210mm", height: "297mm" });
+  };
+
   const handlePassengerTaxInvoice = (r: any, passenger: any, index: number) => {
     const gross = passenger.amount ?? Math.round(bookingGross(r) / bookingPassengerCount(r));
     const tax = splitVat(gross, r.taxRate ?? 15);
@@ -3537,6 +3810,29 @@ function AdminStatementsTab() {
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">إلى تاريخ</label>
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inp} />
+          </div>
+        </div>
+        <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="min-w-[220px] flex-1">
+              <label className="text-xs font-semibold text-emerald-800 mb-1.5 block">نوع الطباعة</label>
+              <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)} className={inp}>
+                <option value="statement">كشف حساب المنصة حسب الفلتر</option>
+                <option value="platform_invoices">فواتير ضريبية للمنصة</option>
+                <option value="office_invoices">فواتير ضريبية للمكاتب</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handlePrintByFilter}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-700 text-white text-sm font-black hover:bg-emerald-800 shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              طباعة حسب الفلتر
+            </button>
+          </div>
+          <div className="mt-3 text-xs text-emerald-800/80">
+            الطباعة تعتمد على المكتب والحالة والفترة المختارة بالأعلى، والفواتير تطبع بشعار المنصة وألوانها الرسمية.
           </div>
         </div>
         {(filterOffice !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (

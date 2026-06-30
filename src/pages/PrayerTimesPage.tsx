@@ -23,6 +23,7 @@ const CITIES = [
 
 // إحداثيات الكعبة المشرفة
 const KAABA = { lat: 21.4225, lng: 39.8262 };
+type CompassMode = "idle" | "requesting" | "live" | "unavailable";
 
 // المؤذنون المشهورون مع روابط الأذان
 const MUEZZINS = [
@@ -68,6 +69,18 @@ function calcQiblaAngle(userLat: number, userLng: number): number {
   return ((θ * 180) / Math.PI + 360) % 360;
 }
 
+function normalizeAngle(angle: number): number {
+  return ((angle % 360) + 360) % 360;
+}
+
+function shortestAngleDelta(from: number, to: number): number {
+  return ((to - from + 540) % 360) - 180;
+}
+
+function smoothHeading(previous: number, next: number): number {
+  return normalizeAngle(previous + shortestAngleDelta(previous, next) * 0.22);
+}
+
 export default function PrayerTimesPage({ navigate }: Props) {
   const [selectedCity, setSelectedCity] = useState(CITIES[0]);
   const [prayerData, setPrayerData] = useState<PrayerData | null>(null);
@@ -87,8 +100,11 @@ export default function PrayerTimesPage({ navigate }: Props) {
   // اتجاه القبلة
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
   const [compassHeading, setCompassHeading] = useState<number>(0);
+  const [compassMode, setCompassMode] = useState<CompassMode>("idle");
+  const [lastCompassAt, setLastCompassAt] = useState<number | null>(null);
   const [qiblaStatus, setQiblaStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [activeTab, setActiveTab] = useState<"prayer" | "qibla">("prayer");
+  const compassHeadingRef = useRef(0);
 
   // Tick every second
   useEffect(() => {
@@ -193,32 +209,84 @@ export default function PrayerTimesPage({ navigate }: Props) {
     setAdhanNotify(v => !v);
   };
 
-  // اتجاه القبلة
-  const getQibla = () => {
+  const requestCompassPermission = async (): Promise<boolean> => {
+    const OrientationEvent = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & {
+      requestPermission?: () => Promise<"granted" | "denied">;
+    };
+    if (typeof OrientationEvent?.requestPermission !== "function") return true;
+    setCompassMode("requesting");
+    try {
+      const permission = await OrientationEvent.requestPermission();
+      return permission === "granted";
+    } catch {
+      return false;
+    }
+  };
+
+  const getQibla = async () => {
     setQiblaStatus("loading");
+    setCompassMode("requesting");
+
+    const compassAllowed = await requestCompassPermission();
+    if (!compassAllowed) setCompassMode("unavailable");
+
+    if (!navigator.geolocation) {
+      setQiblaStatus("error");
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const angle = calcQiblaAngle(pos.coords.latitude, pos.coords.longitude);
         setQiblaAngle(angle);
         setQiblaStatus("ok");
+        if (compassAllowed) setCompassMode((mode) => mode === "live" ? "live" : "idle");
       },
       () => setQiblaStatus("error"),
-      { timeout: 8000 }
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 }
     );
   };
 
-  // بوصلة الجهاز
   useEffect(() => {
-    const handler = (e: DeviceOrientationEvent) => {
-      const heading = (e as any).webkitCompassHeading ?? (e.alpha ? 360 - e.alpha : 0);
-      setCompassHeading(heading);
+    const readHeading = (e: DeviceOrientationEvent) => {
+      const evt = e as DeviceOrientationEvent & { webkitCompassHeading?: number; absolute?: boolean };
+      let heading: number | null = null;
+
+      if (typeof evt.webkitCompassHeading === "number") {
+        heading = evt.webkitCompassHeading;
+      } else if (typeof evt.alpha === "number") {
+        heading = evt.absolute ? evt.alpha : 360 - evt.alpha;
+      }
+
+      if (heading === null || Number.isNaN(heading)) return;
+      const nextHeading = normalizeAngle(heading);
+      compassHeadingRef.current = smoothHeading(compassHeadingRef.current, nextHeading);
+      setCompassHeading(compassHeadingRef.current);
+      setCompassMode("live");
+      setLastCompassAt(Date.now());
     };
-    window.addEventListener("deviceorientation", handler, true);
-    return () => window.removeEventListener("deviceorientation", handler, true);
+
+    window.addEventListener("deviceorientation", readHeading, true);
+    window.addEventListener("deviceorientationabsolute", readHeading, true);
+    return () => {
+      window.removeEventListener("deviceorientation", readHeading, true);
+      window.removeEventListener("deviceorientationabsolute", readHeading, true);
+    };
   }, []);
 
+  useEffect(() => {
+    if (qiblaStatus !== "ok") return;
+    const timer = window.setInterval(() => {
+      if (!lastCompassAt) return;
+      if (Date.now() - lastCompassAt > 3500) setCompassMode("unavailable");
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [qiblaStatus, lastCompassAt]);
+
   // الزاوية الفعلية للإبرة نحو القبلة
-  const needleAngle = qiblaAngle !== null ? qiblaAngle - compassHeading : 0;
+  const needleAngle = qiblaAngle !== null ? normalizeAngle(qiblaAngle - compassHeading) : 0;
+  const qiblaDelta = Math.abs(shortestAngleDelta(0, needleAngle));
+  const isAligned = qiblaStatus === "ok" && compassMode === "live" && qiblaDelta <= 6;
 
   // وقت المدينة
   const cityTimeStr = now.toLocaleTimeString("ar-SA", { timeZone: selectedCity.timezone, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
@@ -503,7 +571,86 @@ export default function PrayerTimesPage({ navigate }: Props) {
                 </button>
 
                 {/* البوصلة التفاعلية */}
-                <div className="bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 p-8 flex flex-col items-center">
+                <div className="bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 p-6 flex flex-col items-center overflow-hidden">
+                  <div className="w-full flex items-center justify-between gap-3 mb-5">
+                    <div className={`px-3 py-1.5 rounded-full text-xs font-black border ${compassMode === "live" ? "bg-emerald-500/15 text-emerald-300 border-emerald-400/30" : "bg-amber-500/15 text-amber-300 border-amber-400/30"}`}>
+                      {compassMode === "live" ? "البوصلة حية" : compassMode === "requesting" ? "جاري تشغيل الحساس" : "حساس البوصلة غير نشط"}
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-full text-xs font-black border ${isAligned ? "bg-amber-400 text-emerald-950 border-amber-200 shadow-lg shadow-amber-400/30" : "bg-white/10 text-white/70 border-white/10"}`}>
+                      {isAligned ? "الاتجاه مضبوط" : "حرّك الهاتف ببطء"}
+                    </div>
+                  </div>
+
+                  <div className="relative w-72 h-72 sm:w-80 sm:h-80 mb-6">
+                    <div className={`absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.12),rgba(6,78,59,0.12)_45%,rgba(15,23,42,0.6)_100%)] border ${isAligned ? "border-amber-300 shadow-[0_0_36px_rgba(251,191,36,0.35)]" : "border-white/20"}`} />
+                    <div className="absolute inset-5 rounded-full border border-white/10" />
+                    <div className="absolute inset-10 rounded-full border border-dashed border-amber-300/20" />
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center">
+                      <div className="w-16 h-16 rounded-2xl bg-black border-2 border-amber-300 shadow-xl shadow-amber-400/20 flex items-center justify-center relative overflow-hidden">
+                        <div className="absolute inset-x-0 top-0 h-3 bg-amber-400" />
+                        <div className="absolute inset-x-4 top-3 bottom-0 bg-neutral-950 border-x border-amber-500/50" />
+                        <span className="relative text-2xl">🕋</span>
+                      </div>
+                      <div className="mt-2 px-3 py-1 rounded-full bg-amber-400 text-emerald-950 text-xs font-black shadow-lg">
+                        الكعبة المشرفة
+                      </div>
+                    </div>
+                    {[
+                      { label: "ش", cls: "top-24 left-1/2 -translate-x-1/2" },
+                      { label: "ج", cls: "bottom-3 left-1/2 -translate-x-1/2" },
+                      { label: "غ", cls: "right-4 top-1/2 -translate-y-1/2" },
+                      { label: "ق", cls: "left-4 top-1/2 -translate-y-1/2" },
+                    ].map(d => (
+                      <span key={d.label} className={`absolute text-white/45 text-xs font-black ${d.cls}`}>{d.label}</span>
+                    ))}
+                    {Array.from({ length: 72 }).map((_, i) => {
+                      const angle = i * 5;
+                      const isMajor = angle % 30 === 0;
+                      return (
+                        <div
+                          key={i}
+                          className={`absolute left-1/2 top-1/2 origin-center ${isMajor ? "h-3 w-0.5 bg-white/35" : "h-2 w-px bg-white/15"}`}
+                          style={{ transform: `rotate(${angle}deg) translateY(-136px)` }}
+                        />
+                      );
+                    })}
+                    <div className="absolute inset-0 flex items-center justify-center transition-transform duration-200 ease-out" style={{ transform: `rotate(${needleAngle}deg)` }}>
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <div className="absolute top-[78px] left-1/2 -translate-x-1/2 w-4 h-28 rounded-full bg-gradient-to-t from-amber-500 to-yellow-200 shadow-[0_0_18px_rgba(251,191,36,0.8)]" />
+                        <div className="absolute top-[64px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[15px] border-r-[15px] border-b-[28px] border-l-transparent border-r-transparent border-b-yellow-200 drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+                        <div className="absolute bottom-[78px] left-1/2 -translate-x-1/2 w-3 h-20 rounded-full bg-white/15" />
+                        <div className="absolute w-8 h-8 rounded-full bg-amber-400 border-4 border-emerald-950 shadow-lg shadow-amber-400/50 z-10" />
+                      </div>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-20 h-20 rounded-full bg-emerald-950/90 border border-white/10 flex flex-col items-center justify-center z-20 shadow-xl">
+                        <div className="text-amber-300 text-lg font-black" dir="ltr">{Math.round(needleAngle)}°</div>
+                        <div className="text-white/40 text-[10px]">فرق الاتجاه</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-amber-400 text-5xl font-black mb-1" dir="ltr">{Math.round(qiblaAngle)}°</div>
+                    <div className="text-white/70 text-sm mb-4">اتجاه الكعبة من موقعك، والسهم يتحرك حسب دوران الهاتف</div>
+                    <div className="flex items-center justify-center gap-3 flex-wrap">
+                      <div className="bg-amber-500/20 border border-amber-500/30 rounded-xl px-4 py-2 text-center">
+                        <div className="text-amber-400 font-bold text-lg" dir="ltr">{Math.round(qiblaAngle)}°</div>
+                        <div className="text-white/50 text-xs">زاوية القبلة</div>
+                      </div>
+                      <div className="bg-white/10 border border-white/10 rounded-xl px-4 py-2 text-center">
+                        <div className="text-white font-bold text-lg" dir="ltr">{Math.round(compassHeading)}°</div>
+                        <div className="text-white/50 text-xs">اتجاه الهاتف</div>
+                      </div>
+                      <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl px-4 py-2 text-center">
+                        <div className="text-emerald-400 font-bold text-lg" dir="ltr">{Math.round(qiblaDelta)}°</div>
+                        <div className="text-white/50 text-xs">المتبقي للمطابقة</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden">
                   {/* دائرة البوصلة */}
                   <div className="relative w-64 h-64 mb-6">
                     {/* الحلقة الخارجية */}

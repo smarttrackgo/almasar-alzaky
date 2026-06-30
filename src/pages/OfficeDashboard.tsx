@@ -2284,6 +2284,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [printMode, setPrintMode] = useState<"statement" | "booking_invoices" | "passenger_invoices">("statement");
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
   const fromTs = dateFrom ? new Date(dateFrom).getTime() : undefined;
@@ -2481,6 +2482,252 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
     return sum + splitVat(gross, row.taxRate ?? 15).vatAmount;
   }, 0);
 
+  const moneyPrint = (value: number) => `${Math.round(Number(value) || 0).toLocaleString("ar-SA")} ر.س`;
+  const safePrint = (value: unknown) =>
+    String(value ?? "-")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  const statementPeriod = () => {
+    if (dateFrom && dateTo) return `من ${new Date(dateFrom).toLocaleDateString("ar-SA")} إلى ${new Date(dateTo).toLocaleDateString("ar-SA")}`;
+    if (dateFrom) return `من ${new Date(dateFrom).toLocaleDateString("ar-SA")}`;
+    if (dateTo) return `حتى ${new Date(dateTo).toLocaleDateString("ar-SA")}`;
+    return "كل الفترات";
+  };
+
+  const buildOfficeStatementPrintHtml = () => {
+    const tableRows = rows.map((row: any, index: number) => {
+      const status = STATUS[row.bookingStatus]?.label ?? row.bookingStatus ?? "-";
+      const commission = row.commissionAmount > 0 ? `${moneyPrint(row.commissionAmount)} (${row.commissionRate}%)` : "-";
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td class="mono">${safePrint(row.bookingRef)}</td>
+          <td>${new Date(row.bookingDate).toLocaleDateString("ar-SA")}</td>
+          <td>${safePrint(row.passengerName)}</td>
+          <td>${bookingPassengerCount(row).toLocaleString("ar-SA")}</td>
+          <td>${safePrint(row.packageTitle)}</td>
+          <td class="num">${moneyPrint(bookingGross(row))}</td>
+          <td class="num warn">${commission}</td>
+          <td class="num good">${moneyPrint(row.netAmount ?? 0)}</td>
+          <td>${safePrint(status)}</td>
+        </tr>`;
+    }).join("");
+
+    return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>كشف حساب المكتب - ${safePrint(officeName)}</title>
+<style>
+  @page{size:A4 landscape;margin:8mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:#f3f4f6;font-family:Tajawal,Arial,sans-serif;color:#111827}
+  .sheet{width:281mm;margin:0 auto;background:#fff;border:1px solid #d1d5db;min-height:190mm}
+  .header{background:#064e3b;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{height:48px;width:48px;object-fit:contain;border-radius:12px;background:#ffffff1f;padding:4px}
+  .brand-title{font-size:18px;font-weight:900}
+  .brand-sub{font-size:11px;color:#d1fae5;margin-top:3px}
+  .doc{text-align:left}
+  .doc h1{margin:0;font-size:20px}
+  .doc p{margin:5px 0 0;color:#d1fae5;font-size:11px}
+  .body{padding:14px 16px}
+  .filters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .chip{border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;font-size:11px}
+  .chip span{display:block;color:#047857;font-weight:800;margin-bottom:2px}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+  .card{border:1px solid #e5e7eb;border-radius:10px;padding:9px 10px;background:#f9fafb}
+  .label{font-size:10px;color:#6b7280;font-weight:800}
+  .value{font-size:15px;color:#064e3b;font-weight:900;margin-top:3px}
+  table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb}
+  th{background:#065f46;color:#fff;padding:8px 7px;font-size:10px;text-align:right;white-space:nowrap}
+  td{padding:7px;font-size:10px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  tbody tr:nth-child(even){background:#f9fafb}
+  .num{text-align:left;font-weight:900;white-space:nowrap}
+  .mono{font-family:Consolas,monospace;font-weight:900;color:#065f46}
+  .good{color:#047857}.warn{color:#92400e}
+  .footer{display:flex;justify-content:space-between;gap:12px;color:#6b7280;font-size:9px;border-top:1px solid #e5e7eb;margin-top:12px;padding-top:10px}
+  @media print{body{background:#fff}.sheet{border:none;width:auto;min-height:auto}}
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div class="brand">
+        <img src="${LOGO_URL}" class="logo" />
+        <div>
+          <div class="brand-title">المسار الذكي</div>
+          <div class="brand-sub">منصة حجز العمرة والنقل</div>
+        </div>
+      </div>
+      <div class="doc">
+        <h1>كشف حساب المكتب</h1>
+        <p>${safePrint(officeName)}</p>
+      </div>
+    </div>
+    <div class="body">
+      <div class="filters">
+        <div class="chip"><span>المكتب</span>${safePrint(officeName)}</div>
+        <div class="chip"><span>الفترة</span>${safePrint(statementPeriod())}</div>
+        <div class="chip"><span>تاريخ الطباعة</span>${new Date().toLocaleString("ar-SA")}</div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="label">عدد الحجوزات</div><div class="value">${(summary?.totalRows ?? rows.length).toLocaleString("ar-SA")}</div></div>
+        <div class="card"><div class="label">إجمالي ما دفعه المعتمرون</div><div class="value">${moneyPrint(summary?.totalPilgrimAmount ?? 0)}</div></div>
+        <div class="card"><div class="label">قيمة خدمة المكتب</div><div class="value">${moneyPrint(summary?.totalBookingAmount ?? 0)}</div></div>
+        <div class="card"><div class="label">عمولة المنصة</div><div class="value">${moneyPrint(summary?.totalCommission ?? 0)}</div></div>
+        <div class="card"><div class="label">صافي المكتب</div><div class="value">${moneyPrint(summary?.totalNet ?? 0)}</div></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>رقم الحجز</th><th>التاريخ</th><th>المعتمر</th><th>العدد</th><th>البرنامج</th>
+            <th>إجمالي الحجز</th><th>عمولة المنصة</th><th>صافي المكتب</th><th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows || `<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af">لا توجد بيانات</td></tr>`}</tbody>
+      </table>
+      <div class="footer">
+        <span>المسار الذكي - كشف حساب المكتب</span>
+        <span>العملة: ريال سعودي</span>
+        <span>التقرير يوضح صافي المكتب بعد خصم عمولة المنصة</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  };
+
+  const buildOfficeInvoicePages = (mode: "booking_invoices" | "passenger_invoices") => {
+    const pages = rows.flatMap((row: any) => {
+      const passengers = mode === "passenger_invoices" ? bookingPassengers(row) : [null];
+      return passengers.map((passenger: any, passengerIndex: number) => {
+        const gross = passenger ? (passenger.amount ?? Math.round(bookingGross(row) / bookingPassengerCount(row))) : bookingGross(row);
+        const tax = splitVat(gross, row.taxRate ?? 15);
+        const invoiceNo = `${row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`}${passenger ? `-P${passengerIndex + 1}` : ""}`;
+        const buyerName = passenger ? passenger.name : row.passengerName;
+        const title = passenger ? "فاتورة ضريبية منفصلة - معتمر" : "فاتورة ضريبية مجمعة - حجز";
+        const description = passenger
+          ? `حصة ${buyerName} من إجمالي الحجز رقم ${row.bookingRef}`
+          : "إجمالي قيمة الحجز الكامل حسب رقم الحجز وعدد الركاب";
+
+        return `
+          <section class="invoice">
+            <div class="inv-header">
+              <div class="brand">
+                <img src="${LOGO_URL}" class="logo" />
+                <div>
+                  <div class="brand-title">المسار الذكي</div>
+                  <div class="brand-sub">منصة حجز العمرة والنقل</div>
+                </div>
+              </div>
+              <div class="inv-title">
+                <h1>${title}</h1>
+                <p>${safePrint(invoiceNo)}</p>
+              </div>
+            </div>
+            <div class="inv-body">
+              <div class="split-note">
+                <strong>تقسيم الفاتورة:</strong>
+                ${passenger ? "فاتورة منفصلة لمعتمر واحد داخل نفس رقم الحجز." : "فاتورة مجمعة للحجز الكامل وعدد المعتمرين داخل نفس رقم الحجز."}
+              </div>
+              <div class="meta">
+                <div class="box">
+                  <h2>بيانات المورد</h2>
+                  <div class="line"><span>المكتب</span><strong>${safePrint(officeName)}</strong></div>
+                  <div class="line"><span>السجل التجاري</span><strong>${safePrint(row.officeCommercialRegister)}</strong></div>
+                  <div class="line"><span>الدولة</span><strong>السعودية</strong></div>
+                </div>
+                <div class="box">
+                  <h2>بيانات العميل</h2>
+                  <div class="line"><span>الاسم</span><strong>${safePrint(buyerName)}</strong></div>
+                  <div class="line"><span>رقم الحجز</span><strong class="mono">${safePrint(row.bookingRef)}</strong></div>
+                  <div class="line"><span>عدد الركاب</span><strong>${passenger ? "1" : bookingPassengerCount(row).toLocaleString("ar-SA")}</strong></div>
+                </div>
+                <div class="box">
+                  <h2>بيانات الفاتورة</h2>
+                  <div class="line"><span>التاريخ</span><strong>${new Date(row.bookingDate).toLocaleDateString("ar-SA")}</strong></div>
+                  <div class="line"><span>نسبة الضريبة</span><strong>${safePrint(row.taxRate ?? 15)}%</strong></div>
+                  <div class="line"><span>البرنامج</span><strong>${safePrint(row.packageTitle)}</strong></div>
+                </div>
+              </div>
+              <table>
+                <thead><tr><th>الوصف</th><th>قبل الضريبة</th><th>ضريبة القيمة المضافة</th><th>الإجمالي شامل الضريبة</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>${safePrint(description)}</td>
+                    <td class="num">${moneyPrint(tax.taxableAmount)}</td>
+                    <td class="num">${moneyPrint(tax.vatAmount)}</td>
+                    <td class="num">${moneyPrint(gross)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="totals">
+                <div><span>الإجمالي قبل الضريبة</span><strong>${moneyPrint(tax.taxableAmount)}</strong></div>
+                <div><span>ضريبة القيمة المضافة ${safePrint(row.taxRate ?? 15)}%</span><strong>${moneyPrint(tax.vatAmount)}</strong></div>
+                <div><span>الإجمالي شامل الضريبة</span><strong>${moneyPrint(gross)}</strong></div>
+              </div>
+              <div class="inv-footer">
+                <span>تاريخ الطباعة: ${new Date().toLocaleString("ar-SA")}</span>
+                <span>فاتورة مكتب مرتبطة بكشف الحساب</span>
+                <span>المسار الذكي</span>
+              </div>
+            </div>
+          </section>`;
+      });
+    }).join("");
+
+    return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>${printMode === "passenger_invoices" ? "فواتير المعتمرين" : "فواتير الحجوزات"} - ${safePrint(officeName)}</title>
+<style>
+  @page{size:A4;margin:10mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:#f3f4f6;font-family:Tajawal,Arial,sans-serif;color:#111827}
+  .invoice{width:190mm;min-height:277mm;margin:0 auto 12mm;background:#fff;border:1px solid #d1d5db;page-break-after:always}
+  .invoice:last-child{page-break-after:auto;margin-bottom:0}
+  .inv-header{background:#064e3b;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{height:46px;width:46px;object-fit:contain;border-radius:12px;background:#ffffff1f;padding:4px}
+  .brand-title{font-size:18px;font-weight:900}.brand-sub{font-size:11px;color:#d1fae5;margin-top:3px}
+  .inv-title{text-align:left}.inv-title h1{margin:0;font-size:18px}.inv-title p{margin:5px 0 0;color:#fef3c7;font-size:11px;font-family:Consolas,monospace}
+  .inv-body{padding:18px 22px}
+  .split-note{border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:12px;padding:10px 12px;font-size:11px;margin-bottom:12px}
+  .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .box{border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;padding:11px}
+  .box h2{margin:0 0 8px;font-size:12px;color:#065f46}
+  .line{display:flex;justify-content:space-between;gap:10px;font-size:11px;padding:4px 0;border-bottom:1px dashed #e5e7eb}
+  .line:last-child{border-bottom:none}.line span{color:#6b7280;font-weight:800}.line strong{text-align:left}
+  .mono{font-family:Consolas,monospace;color:#065f46}
+  table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;margin-top:12px}
+  th{background:#065f46;color:#fff;padding:10px;font-size:11px;text-align:right}
+  td{padding:11px;font-size:11px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  .num{text-align:center;font-weight:900;white-space:nowrap}
+  .totals{width:84mm;margin-right:auto;margin-top:14px;border:1px solid #d1fae5;border-radius:12px;overflow:hidden}
+  .totals div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;font-size:12px;border-bottom:1px solid #d1fae5}
+  .totals div:last-child{border-bottom:none;background:#ecfdf5;color:#065f46;font-weight:900;font-size:14px}
+  .inv-footer{margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;color:#9ca3af;font-size:9px}
+  @media print{body{background:#fff}.invoice{border:none;margin:0;width:auto;min-height:auto}}
+</style>
+</head>
+<body>${pages}</body>
+</html>`;
+  };
+
+  const handlePrintByMode = () => {
+    if (rows.length === 0) {
+      toast.error("لا توجد بيانات للطباعة في الفترة الحالية");
+      return;
+    }
+    const html = printMode === "statement" ? buildOfficeStatementPrintHtml() : buildOfficeInvoicePages(printMode);
+    void printHtml(html, { width: printMode === "statement" ? "297mm" : "210mm", height: "297mm" });
+  };
+
   const handleOfficeTaxInvoice = (row: any) => {
     const gross = bookingGross(row);
     const tax = splitVat(gross, row.taxRate ?? 15);
@@ -2535,6 +2782,15 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
           <p className="text-sm text-gray-400 mt-0.5">إيراداتك بعد خصم عمولة المنصة</p>
         </div>
         <div className="flex items-center gap-2">
+          <select
+            value={printMode}
+            onChange={(e) => setPrintMode(e.target.value as typeof printMode)}
+            className="px-3 py-2 rounded-xl text-sm font-semibold border-2 border-gray-200 bg-white text-gray-700 focus:outline-none focus:border-emerald-500"
+          >
+            <option value="statement">كشف حساب المكتب</option>
+            <option value="booking_invoices">فواتير الحجوزات مجمعة</option>
+            <option value="passenger_invoices">فواتير المعتمرين منفصلة</option>
+          </select>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
@@ -2545,7 +2801,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
             فلترة
           </button>
           <button
-            onClick={handlePrint}
+            onClick={handlePrintByMode}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
           >
             <Printer className="w-4 h-4" />
