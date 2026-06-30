@@ -639,6 +639,15 @@ export default function QuranPage({ navigate }: { navigate: (p: Page) => void })
       {/* ══ Hero ══ */}
       <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 text-white py-10 px-4">
         <div className="max-w-7xl mx-auto text-center">
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => navigate({ name: "home" })}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 text-stone-950 hover:bg-amber-300 text-xs font-black shadow-sm"
+            >
+              <Home className="w-4 h-4" />
+              العودة للمنصة
+            </button>
+          </div>
           <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-3">
             <BookOpen className="w-8 h-8 text-amber-300" />
           </div>
