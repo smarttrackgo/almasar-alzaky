@@ -1,0 +1,52 @@
+{
+  "name": "المسار الذكي لحجز العمرة",
+  "short_name": "المسار الذكي",
+  "description": "منصة وسيط العمرة الداخلية — قارن أسعار المكاتب واحجز بسهولة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#022c22",
+  "theme_color": "#064e3b",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["travel", "lifestyle", "religion"],
+  "icons": [
+    {
+      "src": "https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "الصفحة الرئيسية"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "حجوزاتي",
+      "short_name": "حجوزاتي",
+      "description": "عرض حجوزاتي",
+      "url": "/?page=bookings",
+      "icons": [{ "src": "https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad", "sizes": "96x96" }]
+    },
+    {
+      "name": "المصحف الشريف",
+      "short_name": "المصحف",
+      "description": "قراءة القرآن الكريم",
+      "url": "/?page=quran",
+      "icons": [{ "src": "https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad", "sizes": "96x96" }]
+    }
+  ]
+}

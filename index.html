@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta -->
+    <title>المسار الذكي وسيط العمره مقارنه سريعه للاسعار</title>
+    <meta name="description" content="منصه وسيط العمره الداخليه بين المدن مقارنه اسعار المكاتب وابدأ احجز واعتمر" />
+    <meta name="keywords" content="وفرنا عليك الوقت" />
+    <meta name="author" content="المسار الذكي" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:title"       content="المسار الذكي وسيط العمره مقارنه سريعه للاسعار" />
+    <meta property="og:description" content="منصه وسيط العمره الداخليه بين المدن مقارنه اسعار المكاتب وابدأ احجز واعتمر" />
+    <meta property="og:image"       content="https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad" />
+    <meta property="og:url"         content="https://almasaraldaki.sa" />
+    <meta property="og:locale"      content="ar_SA" />
+    <meta property="og:site_name"   content="المسار الذكي" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="المسار الذكي وسيط العمره مقارنه سريعه للاسعار" />
+    <meta name="twitter:description" content="منصه وسيط العمره الداخليه بين المدن مقارنه اسعار المكاتب وابدأ احجز واعتمر" />
+    <meta name="twitter:image"       content="https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- PWA iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="المسار الذكي" />
+    <link rel="apple-touch-icon" href="https://polished-pony-114.convex.cloud/api/storage/bdcd34f5-1db8-4d00-ac98-2ea9329effad" />
+
+    <!-- PWA Android / Theme -->
+    <meta name="theme-color" content="#064e3b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="المسار الذكي" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered:', reg.scope))
+            .catch(err => console.log('SW registration failed:', err));
+        });
+      }
+    </script>
+  </body>
+</html>
