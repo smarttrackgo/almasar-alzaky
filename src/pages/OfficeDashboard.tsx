@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Id } from "../../convex/_generated/dataModel";
 import { printHtml } from "../lib/printDocument";
+import { printTaxInvoice } from "../lib/taxInvoice";
 
 const LOGO_URL = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
 
@@ -2456,6 +2457,35 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
   if (data === undefined) return <Spinner />;
 
   const { rows = [], summary } = data ?? { rows: [], summary: null };
+  const splitVat = (amount: number, rate = 15) => {
+    const taxableAmount = Math.round((amount || 0) / (1 + rate / 100));
+    return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
+  };
+  const totalOfficeVatFallback = rows.reduce((sum: number, row: any) => {
+    const gross = row.officeBaseAmount ?? row.bookingAmount ?? 0;
+    return sum + (row.officeVatAmount ?? splitVat(gross, row.taxRate ?? 15).vatAmount);
+  }, 0);
+
+  const handleOfficeTaxInvoice = (row: any) => {
+    const gross = row.officeBaseAmount ?? row.bookingAmount ?? 0;
+    const tax = splitVat(gross, row.taxRate ?? 15);
+    void printTaxInvoice({
+      invoiceNo: row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`,
+      title: "فاتورة ضريبية - خدمة المكتب",
+      seller: { name: officeName, commercialRegister: row.officeCommercialRegister, city: "السعودية" },
+      buyer: { name: row.passengerName, city: "السعودية" },
+      bookingRef: row.bookingRef,
+      passengerName: row.passengerName,
+      packageTitle: row.packageTitle,
+      invoiceDate: row.bookingDate,
+      description: "قيمة برنامج العمرة وخدمات المكتب قبل خصم عمولة المنصة",
+      grossAmount: gross,
+      taxableAmount: row.officeTaxableAmount ?? tax.taxableAmount,
+      vatAmount: row.officeVatAmount ?? tax.vatAmount,
+      vatRate: row.taxRate ?? 15,
+      notes: "هذه الفاتورة الضريبية مرتبطة بكشف حساب المكتب والحجز الموضح أعلاه.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -2537,6 +2567,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
               { val: summary.totalBookingAmount.toLocaleString("ar-SA") + " ر.س", lbl: "إجمالي المبيعات", from: "from-blue-500",    to: "to-blue-700" },
               { val: summary.totalCommission.toLocaleString("ar-SA") + " ر.س",   lbl: "إجمالي العمولات", from: "from-amber-500",   to: "to-amber-700" },
               { val: summary.totalNet.toLocaleString("ar-SA") + " ر.س",          lbl: "صافي الربح",      from: "from-purple-500",  to: "to-purple-700" },
+              { val: (summary.totalOfficeVat ?? totalOfficeVatFallback).toLocaleString("ar-SA") + " ر.س", lbl: "ضريبة فواتير المكتب", from: "from-slate-500", to: "to-slate-700" },
             ].map(({ val, lbl, from, to }, i) => (
               <div key={i} className={`bg-gradient-to-br ${from} ${to} rounded-2xl p-5 text-white`}>
                 <div className="text-xl font-black leading-tight">{val}</div>
@@ -2579,7 +2610,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
               <table className="w-full">
                 <thead>
                   <tr className="bg-gradient-to-l from-emerald-900 to-emerald-700 text-white">
-                    {["رقم الحجز", "التاريخ", "المسافر", "البرنامج", "إجمالي الحجز", "العمولة", "صافي الربح", "الحالة"].map((h) => (
+                    {["رقم الحجز", "التاريخ", "المسافر", "البرنامج", "إجمالي الحجز", "العمولة", "صافي الربح", "الحالة", "الفاتورة"].map((h) => (
                       <th key={h} className="px-4 py-3 text-xs font-bold text-right whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -2608,6 +2639,14 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${bs.cls}`}>{bs.label}</span>
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <button
+                            onClick={() => handleOfficeTaxInvoice(row)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100"
+                          >
+                            فاتورة ضريبية
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -2619,6 +2658,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
                       <td className="px-4 py-3 text-sm font-black text-gray-800">{summary.totalBookingAmount.toLocaleString("ar-SA")} ر.س</td>
                       <td className="px-4 py-3 text-sm font-black text-amber-700">{summary.totalCommission.toLocaleString("ar-SA")} ر.س</td>
                       <td className="px-4 py-3 text-sm font-black text-emerald-700">{summary.totalNet.toLocaleString("ar-SA")} ر.س</td>
+                      <td />
                       <td />
                     </tr>
                   </tfoot>

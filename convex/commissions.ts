@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 const DEFAULT_COMMISSION_RATE = 5;
 const DEFAULT_PASSENGER_RATE = 0;
+const DEFAULT_VAT_RATE = 15;
 
 async function requireAdmin(ctx: any) {
   const userId = await getAuthUserId(ctx);
@@ -52,6 +53,12 @@ async function deriveCommissionFromBooking(ctx: any, booking: any, defaultRate: 
     office,
     booking,
   };
+}
+
+function splitInclusiveVat(amount: number, vatRate = DEFAULT_VAT_RATE) {
+  const taxableAmount = Math.round(amount / (1 + vatRate / 100));
+  const vatAmount = Math.max(0, Math.round(amount - taxableAmount));
+  return { taxableAmount, vatAmount, vatRate };
 }
 
 export const getDefaultRate = query({
@@ -197,6 +204,8 @@ export const adminStatement = query({
         const netAmount  = comm?.netAmount ?? b.netAmount ?? (officeBaseAmount - commAmount);
         const platformRevenue = b.platformRevenue ?? (passengerFeeAmount + commAmount);
         const commStatus = comm?.status ?? "no_commission";
+        const officeTax = splitInclusiveVat(officeBaseAmount);
+        const platformTax = splitInclusiveVat(platformRevenue);
 
         return {
           bookingId:        b._id,
@@ -214,6 +223,14 @@ export const adminStatement = query({
           passengerFeeAmount,
           pilgrimTotalAmount: b.totalPrice,
           platformRevenue,
+          taxRate: DEFAULT_VAT_RATE,
+          officeTaxableAmount: officeTax.taxableAmount,
+          officeVatAmount: officeTax.vatAmount,
+          platformTaxableAmount: platformTax.taxableAmount,
+          platformVatAmount: platformTax.vatAmount,
+          platformInvoiceNo: `MSR-TAX-${b.bookingReference}`,
+          officeInvoiceNo: `OFF-TAX-${b.bookingReference}`,
+          officeCommercialRegister: office?.commercialRegister,
           commissionRate:   commRate,
           commissionAmount: commAmount,
           netAmount:        netAmount,
@@ -234,6 +251,8 @@ export const adminStatement = query({
     const totalPassengerFees  = finalRows.reduce((s, r) => s + r.passengerFeeAmount, 0);
     const totalCommission     = finalRows.reduce((s, r) => s + r.commissionAmount, 0);
     const totalPlatformRevenue = finalRows.reduce((s, r) => s + r.platformRevenue, 0);
+    const totalOfficeVat      = finalRows.reduce((s, r) => s + r.officeVatAmount, 0);
+    const totalPlatformVat    = finalRows.reduce((s, r) => s + r.platformVatAmount, 0);
     const totalNet            = finalRows.reduce((s, r) => s + r.netAmount, 0);
     const settledCommission   = finalRows.filter(r => r.commissionStatus === "settled").reduce((s, r) => s + r.commissionAmount, 0);
     const pendingCommission   = finalRows.filter(r => r.commissionStatus === "pending").reduce((s, r) => s + r.commissionAmount, 0);
@@ -247,6 +266,9 @@ export const adminStatement = query({
         totalPassengerFees,
         totalCommission,
         totalPlatformRevenue,
+        totalOfficeVat,
+        totalPlatformVat,
+        totalVat: totalOfficeVat + totalPlatformVat,
         totalNet,
         settledCommission,
         pendingCommission,
@@ -307,6 +329,8 @@ export const officeStatement = query({
         const commAmount = b.commissionAmount ?? Math.round((officeBaseAmount * commRate) / 100);
         const netAmount  = b.netAmount        ?? (officeBaseAmount - commAmount);
         const platformRevenue = b.platformRevenue ?? (passengerFeeAmount + commAmount);
+        const officeTax = splitInclusiveVat(officeBaseAmount);
+        const platformTax = splitInclusiveVat(platformRevenue);
 
         // جلب حالة العمولة من جدول commissions إن وُجد
         const comm = await ctx.db
@@ -329,6 +353,14 @@ export const officeStatement = query({
           passengerFeeAmount,
           pilgrimTotalAmount: b.totalPrice,
           platformRevenue,
+          taxRate: DEFAULT_VAT_RATE,
+          officeTaxableAmount: officeTax.taxableAmount,
+          officeVatAmount: officeTax.vatAmount,
+          platformTaxableAmount: platformTax.taxableAmount,
+          platformVatAmount: platformTax.vatAmount,
+          platformInvoiceNo: `MSR-TAX-${b.bookingReference}`,
+          officeInvoiceNo: `OFF-TAX-${b.bookingReference}`,
+          officeCommercialRegister: office?.commercialRegister,
           commissionRate:   commRate,
           commissionAmount: commAmount,
           netAmount:        netAmount,
@@ -344,6 +376,8 @@ export const officeStatement = query({
     const totalPassengerFees = rows.reduce((s, r) => s + r.passengerFeeAmount, 0);
     const totalCommission    = rows.reduce((s, r) => s + r.commissionAmount, 0);
     const totalPlatformRevenue = rows.reduce((s, r) => s + r.platformRevenue, 0);
+    const totalOfficeVat     = rows.reduce((s, r) => s + r.officeVatAmount, 0);
+    const totalPlatformVat   = rows.reduce((s, r) => s + r.platformVatAmount, 0);
     const totalNet           = rows.reduce((s, r) => s + r.netAmount, 0);
     const settledNet         = rows.filter(r => r.commissionStatus === "settled").reduce((s, r) => s + r.netAmount, 0);
     const pendingNet         = rows.filter(r => r.commissionStatus === "pending").reduce((s, r) => s + r.netAmount, 0);
@@ -359,6 +393,9 @@ export const officeStatement = query({
         totalPassengerFees,
         totalCommission,
         totalPlatformRevenue,
+        totalOfficeVat,
+        totalPlatformVat,
+        totalVat: totalOfficeVat + totalPlatformVat,
         totalNet,
         settledNet,
         pendingNet,
@@ -417,6 +454,8 @@ export const officeStatements = query({
         const netAmount        = comm?.netAmount        ?? b.netAmount ?? null;
         const platformRevenue  = b.platformRevenue ?? (passengerFeeAmount + (commissionAmount ?? 0));
         const commissionStatus = comm?.status           ?? "no_commission";
+        const officeTax = splitInclusiveVat(officeBaseAmount);
+        const platformTax = splitInclusiveVat(platformRevenue);
 
         return {
           bookingId:         b._id,
@@ -431,6 +470,14 @@ export const officeStatements = query({
           passengerFeeAmount,
           pilgrimTotalAmount: b.totalPrice,
           platformRevenue,
+          taxRate: DEFAULT_VAT_RATE,
+          officeTaxableAmount: officeTax.taxableAmount,
+          officeVatAmount: officeTax.vatAmount,
+          platformTaxableAmount: platformTax.taxableAmount,
+          platformVatAmount: platformTax.vatAmount,
+          platformInvoiceNo: `MSR-TAX-${b.bookingReference}`,
+          officeInvoiceNo: `OFF-TAX-${b.bookingReference}`,
+          officeCommercialRegister: office?.commercialRegister,
           commissionRate,
           commissionAmount,
           netAmount,
@@ -452,6 +499,8 @@ export const officeStatements = query({
     const totalPassengerFees = activeRows.reduce((s, r) => s + r.passengerFeeAmount, 0);
     const totalComm     = activeRows.reduce((s, r) => s + (r.commissionAmount ?? 0), 0);
     const totalPlatformRevenue = activeRows.reduce((s, r) => s + r.platformRevenue, 0);
+    const totalOfficeVat = activeRows.reduce((s, r) => s + r.officeVatAmount, 0);
+    const totalPlatformVat = activeRows.reduce((s, r) => s + r.platformVatAmount, 0);
     const totalNet      = activeRows.reduce((s, r) => s + (r.netAmount ?? r.bookingAmount), 0);
     const settledComm   = activeRows.filter(r => r.commissionStatus === "settled").reduce((s, r) => s + (r.commissionAmount ?? 0), 0);
     const pendingComm   = activeRows.filter(r => r.commissionStatus === "pending").reduce((s, r) => s + (r.commissionAmount ?? 0), 0);
@@ -466,6 +515,9 @@ export const officeStatements = query({
         totalPassengerFees,
         totalComm,
         totalPlatformRevenue,
+        totalOfficeVat,
+        totalPlatformVat,
+        totalVat: totalOfficeVat + totalPlatformVat,
         totalNet,
         settledComm,
         pendingComm,

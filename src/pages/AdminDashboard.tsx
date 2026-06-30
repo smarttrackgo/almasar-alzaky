@@ -7,6 +7,7 @@ import WhatsAppTab from "../components/admin/WhatsAppTab";
 import EmailTab from "../components/admin/EmailTab";
 import WalletTab from "../components/admin/WalletTab";
 import SMSTab from "../components/admin/SMSTab";
+import { printTaxInvoice } from "../lib/taxInvoice";
 import {
   CreditCard,
   LayoutDashboard, Building2, CalendarCheck, Users,
@@ -3372,6 +3373,57 @@ function AdminStatementsTab() {
 
   const rows    = data?.rows ?? [];
   const summary = data?.summary;
+  const splitVat = (amount: number, rate = 15) => {
+    const taxableAmount = Math.round((amount || 0) / (1 + rate / 100));
+    return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
+  };
+  const totalVatFallback = rows.reduce((sum: number, r: any) => {
+    const officeGross = r.officeBaseAmount ?? r.bookingAmount ?? 0;
+    const platformGross = r.platformRevenue ?? r.commissionAmount ?? 0;
+    return sum + (r.officeVatAmount ?? splitVat(officeGross, r.taxRate ?? 15).vatAmount) + (r.platformVatAmount ?? splitVat(platformGross, r.taxRate ?? 15).vatAmount);
+  }, 0);
+
+  const handlePlatformTaxInvoice = (r: any) => {
+    const gross = r.platformRevenue ?? r.commissionAmount ?? 0;
+    const tax = splitVat(gross, r.taxRate ?? 15);
+    void printTaxInvoice({
+      invoiceNo: r.platformInvoiceNo ?? `MSR-TAX-${r.bookingRef}`,
+      title: "فاتورة ضريبية - إيراد المنصة",
+      seller: { name: "المسار الذكي", taxNumber: "يضاف من إعدادات المنصة", commercialRegister: "يضاف من إعدادات المنصة", city: "السعودية" },
+      buyer: { name: r.officeName, commercialRegister: r.officeCommercialRegister, city: "السعودية" },
+      bookingRef: r.bookingRef,
+      passengerName: r.passengerName,
+      packageTitle: r.packageTitle,
+      invoiceDate: r.bookingDate,
+      description: "عمولة المنصة ومصاريف التشغيل والخدمات المرتبطة بالحجز",
+      grossAmount: gross,
+      taxableAmount: r.platformTaxableAmount ?? tax.taxableAmount,
+      vatAmount: r.platformVatAmount ?? tax.vatAmount,
+      vatRate: r.taxRate ?? 15,
+      notes: "هذه الفاتورة تخص إيراد المنصة من الحجز وتظهر ضمن كشف حساب المنصة.",
+    });
+  };
+
+  const handleOfficeTaxInvoice = (r: any) => {
+    const gross = r.officeBaseAmount ?? r.bookingAmount ?? 0;
+    const tax = splitVat(gross, r.taxRate ?? 15);
+    void printTaxInvoice({
+      invoiceNo: r.officeInvoiceNo ?? `OFF-TAX-${r.bookingRef}`,
+      title: "فاتورة ضريبية - خدمة المكتب",
+      seller: { name: r.officeName, commercialRegister: r.officeCommercialRegister, city: "السعودية" },
+      buyer: { name: r.passengerName, city: "السعودية" },
+      bookingRef: r.bookingRef,
+      passengerName: r.passengerName,
+      packageTitle: r.packageTitle,
+      invoiceDate: r.bookingDate,
+      description: "قيمة برنامج العمرة وخدمات المكتب قبل خصم عمولة المنصة",
+      grossAmount: gross,
+      taxableAmount: r.officeTaxableAmount ?? tax.taxableAmount,
+      vatAmount: r.officeVatAmount ?? tax.vatAmount,
+      vatRate: r.taxRate ?? 15,
+      notes: "هذه الفاتورة تخص قيمة خدمة المكتب للمعتمر وترتبط بنفس سطر كشف الحساب.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -3477,6 +3529,11 @@ function AdminStatementsTab() {
               <div className="text-xs font-bold text-emerald-600 mb-1">إجمالي إيراد المنصة</div>
               <div className="text-2xl font-black text-emerald-800">{(summary.totalPlatformRevenue ?? summary.totalCommission).toLocaleString("ar-SA")} ر.س</div>
             </div>
+            <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 md:col-span-3">
+              <div className="text-xs font-bold text-slate-600 mb-1">ضريبة القيمة المضافة المرتبطة بالكشف</div>
+              <div className="text-2xl font-black text-slate-800">{(summary.totalVat ?? totalVatFallback).toLocaleString("ar-SA")} ر.س</div>
+              <div className="text-xs text-slate-400 mt-1">تشمل ضريبة فواتير المكاتب وضريبة فواتير إيراد المنصة</div>
+            </div>
           </div>
         )}
 
@@ -3509,6 +3566,7 @@ function AdminStatementsTab() {
                     <th className="px-4 py-3 text-right text-xs font-bold text-emerald-700 whitespace-nowrap">العمولة</th>
                     <th className="px-4 py-3 text-right text-xs font-bold text-blue-700 whitespace-nowrap">صافي المكتب</th>
                     <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 whitespace-nowrap">حالة العمولة</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 whitespace-nowrap">الفواتير الضريبية</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -3554,6 +3612,16 @@ function AdminStatementsTab() {
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${cst.cls}`}>{cst.label}</span>
                         </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <button onClick={() => handlePlatformTaxInvoice(r)} className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100">
+                              المنصة
+                            </button>
+                            <button onClick={() => handleOfficeTaxInvoice(r)} className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100">
+                              المكتب
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -3568,6 +3636,7 @@ function AdminStatementsTab() {
                       <td className="px-4 py-3 font-black text-gray-900 text-sm whitespace-nowrap">
                         {summary.totalBookingAmount.toLocaleString("ar-SA")} ر.س
                       </td>
+                      <td className="px-4 py-3"></td>
                       <td className="px-4 py-3"></td>
                       <td className="px-4 py-3 font-black text-emerald-700 text-sm whitespace-nowrap">
                         {summary.totalCommission.toLocaleString("ar-SA")} ر.س
@@ -3613,6 +3682,14 @@ function AdminStatementsTab() {
                         <div className="text-xs text-gray-400 mb-0.5">صافي المكتب</div>
                         <div className="font-black text-blue-700 text-xs">{r.netAmount.toLocaleString("ar-SA")}</div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handlePlatformTaxInvoice(r)} className="flex-1 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold">
+                        فاتورة المنصة
+                      </button>
+                      <button onClick={() => handleOfficeTaxInvoice(r)} className="flex-1 px-3 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold">
+                        فاتورة المكتب
+                      </button>
                     </div>
                   </div>
                 );
