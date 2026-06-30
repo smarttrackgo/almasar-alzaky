@@ -80,7 +80,17 @@ const DEFAULT_SETTINGS = [
   { key: "payment_method_stc",   label: "تفعيل STC Pay",              type: "toggle",   value: "true" },
   { key: "payment_method_apple", label: "تفعيل Apple Pay",            type: "toggle",   value: "true" },
   { key: "payment_method_google",label: "تفعيل Google Pay",           type: "toggle",   value: "true" },
+  { key: "payment_method_tabby", label: "تفعيل Tabby",                type: "toggle",   value: "true" },
+  { key: "payment_method_tamara",label: "تفعيل Tamara",               type: "toggle",   value: "true" },
   { key: "payment_method_bank",  label: "تفعيل تحويل بنكي",          type: "toggle",   value: "false" },
+  { key: "payment_tabby_checkout_url",  label: "Tabby Checkout URL",  type: "text",     value: "" },
+  { key: "payment_tabby_public_key",    label: "Tabby Public Key",    type: "text",     value: "" },
+  { key: "payment_tabby_secret_key",    label: "Tabby Secret Key",    type: "password", value: "" },
+  { key: "payment_tamara_checkout_url", label: "Tamara Checkout URL", type: "text",     value: "" },
+  { key: "payment_tamara_public_key",   label: "Tamara Public Key",   type: "text",     value: "" },
+  { key: "payment_tamara_secret_key",   label: "Tamara Secret Key",   type: "password", value: "" },
+  { key: "payment_return_url",          label: "Payment Return URL",  type: "text",     value: "" },
+  { key: "payment_webhook_url",         label: "Payment Webhook URL", type: "text",     value: "" },
   { key: "payment_instructions", label: "تعليمات الدفع للمعتمر",      type: "textarea", value: "" },
   { key: "passenger_commission_rate", label: "نسبة إضافة المعتمر على السعر", type: "text", value: "0" },
   // ── صور طرق الدفع ──
@@ -88,6 +98,8 @@ const DEFAULT_SETTINGS = [
   { key: "payment_img_stc",     label: "صورة STC Pay",        type: "image", value: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/STC_Pay_Logo.svg/320px-STC_Pay_Logo.svg.png" },
   { key: "payment_img_apple",   label: "صورة Apple Pay",      type: "image", value: "https://polished-pony-114.convex.cloud/api/storage/0c781a71-e621-42ff-941b-9aeca76e4559" },
   { key: "payment_img_google",  label: "صورة Google Pay",     type: "image", value: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/320px-Google_Pay_Logo.svg.png" },
+  { key: "payment_img_tabby",   label: "صورة Tabby",          type: "image", value: "" },
+  { key: "payment_img_tamara",  label: "صورة Tamara",         type: "image", value: "" },
   { key: "payment_img_bank",    label: "صورة التحويل البنكي", type: "image", value: "" },
 ];
 
@@ -130,7 +142,15 @@ export const getMap = query({
     const rows = await ctx.db.query("appSettings").collect();
     const map: Record<string, string> = {};
     for (const d of DEFAULT_SETTINGS) map[d.key] = d.value;
-    for (const r of rows) map[r.key] = r.value;
+    for (const r of rows) {
+      if (typeof r.value === "string") {
+        map[r.key] = r.value;
+      } else if (r.value === null || r.value === undefined) {
+        map[r.key] = "";
+      } else {
+        map[r.key] = String(r.value);
+      }
+    }
     return map;
   },
 });

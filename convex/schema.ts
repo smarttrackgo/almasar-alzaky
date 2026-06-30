@@ -191,6 +191,9 @@ const applicationTables = {
     paidAt: v.optional(v.number()),
     cardLast4: v.optional(v.string()),
     cardBrand: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    checkoutUrl: v.optional(v.string()),
+    currency: v.optional(v.string()),
   })
     .index("by_booking", ["bookingId"])
     .index("by_user", ["userId"])
@@ -199,7 +202,7 @@ const applicationTables = {
 
   appSettings: defineTable({
     key: v.string(),
-    value: v.string(),
+    value: v.union(v.string(), v.number(), v.boolean(), v.null()),
     label: v.optional(v.string()),
     type: v.optional(v.string()),
     storageId: v.optional(v.id("_storage")),

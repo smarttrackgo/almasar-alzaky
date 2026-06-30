@@ -319,6 +319,8 @@ export const sendBookingTicket = internalAction({
       stc_pay: "STC Pay",
       apple_pay: "Apple Pay",
       google_pay: "Google Pay",
+      tabby: "Tabby",
+      tamara: "Tamara",
       wallet: "المحفظة الرقمية",
     };
     const methodLabel = methodLabels[args.paymentMethod] ?? args.paymentMethod;
@@ -408,7 +410,7 @@ export const sendPaymentConfirmedEmail = internalAction({
   handler: async (_ctx, args) => {
     const methodLabels: Record<string, string> = {
       mada: "مدى", stc_pay: "STC Pay",
-      apple_pay: "Apple Pay", google_pay: "Google Pay", wallet: "المحفظة الرقمية",
+      apple_pay: "Apple Pay", google_pay: "Google Pay", tabby: "Tabby", tamara: "Tamara", wallet: "المحفظة الرقمية",
     };
     const methodLabel = methodLabels[args.method] ?? args.method;
 
@@ -546,6 +548,8 @@ export const resendTicket = action({
       stc_pay: "STC Pay",
       apple_pay: "Apple Pay",
       google_pay: "Google Pay",
+      tabby: "Tabby",
+      tamara: "Tamara",
       wallet: "المحفظة الرقمية",
     };
     const methodLabel = methodLabels[data.paymentMethod] ?? data.paymentMethod;

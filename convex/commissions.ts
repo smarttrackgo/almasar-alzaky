@@ -61,6 +61,12 @@ function splitInclusiveVat(amount: number, vatRate = DEFAULT_VAT_RATE) {
   return { taxableAmount, vatAmount, vatRate };
 }
 
+function parseSettingNumber(value: string | number | boolean | null | undefined, fallback: number) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const parsed = typeof value === "number" ? value : parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export const getDefaultRate = query({
   args: {},
   handler: async (ctx) => {
@@ -68,7 +74,7 @@ export const getDefaultRate = query({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", "commission_rate"))
       .unique();
-    return setting ? parseFloat(setting.value) : DEFAULT_COMMISSION_RATE;
+    return parseSettingNumber(setting?.value, DEFAULT_COMMISSION_RATE);
   },
 });
 
@@ -79,7 +85,7 @@ export const getDefaultPassengerRate = query({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", "passenger_commission_rate"))
       .unique();
-    return setting ? parseFloat(setting.value) : DEFAULT_PASSENGER_RATE;
+    return parseSettingNumber(setting?.value, DEFAULT_PASSENGER_RATE);
   },
 });
 
@@ -93,7 +99,7 @@ export const getOfficeRate = query({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", "commission_rate"))
       .unique();
-    return setting ? parseFloat(setting.value) : DEFAULT_COMMISSION_RATE;
+    return parseSettingNumber(setting?.value, DEFAULT_COMMISSION_RATE);
   },
 });
 
@@ -107,7 +113,7 @@ export const getOfficePassengerRate = query({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", "passenger_commission_rate"))
       .unique();
-    return setting ? parseFloat(setting.value) : DEFAULT_PASSENGER_RATE;
+    return parseSettingNumber(setting?.value, DEFAULT_PASSENGER_RATE);
   },
 });
 
@@ -318,7 +324,7 @@ export const officeStatement = query({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", "commission_rate"))
       .unique();
-    const defaultRate = setting ? parseFloat(setting.value) : DEFAULT_COMMISSION_RATE;
+    const defaultRate = parseSettingNumber(setting?.value, DEFAULT_COMMISSION_RATE);
     const officeRate = office?.commissionRate !== undefined ? office.commissionRate : defaultRate;
 
     // بناء سطور الكشف — يقرأ من حقول bookings مباشرة (محسوبة عند الإنشاء)
@@ -692,7 +698,7 @@ export const syncAllCommissions = mutation({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", "commission_rate"))
       .unique();
-    const defaultRate = setting ? parseFloat(setting.value) : DEFAULT_COMMISSION_RATE;
+    const defaultRate = parseSettingNumber(setting?.value, DEFAULT_COMMISSION_RATE);
 
     const bookings = await ctx.db.query("bookings").collect();
     const activeBookings = bookings.filter((b) => b.status !== "cancelled");

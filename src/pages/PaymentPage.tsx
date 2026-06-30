@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -11,26 +11,54 @@ import {
 } from "lucide-react";
 
 // الإعدادات الثابتة لكل طريقة دفع (بدون الصور — تُجلب ديناميكياً)
-const METHOD_META = [
+const makeLogoDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+const MADA_LOGO = makeLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 64"><rect width="160" height="64" rx="16" fill="#0A2240"/><text x="80" y="41" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="800" fill="#00B4D8">mada</text></svg>`);
+const STC_PAY_LOGO = makeLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 64"><rect width="170" height="64" rx="16" fill="#6A0DAD"/><text x="85" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="800" fill="#FFFFFF">STC Pay</text></svg>`);
+const APPLE_PAY_LOGO = makeLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 64"><rect width="180" height="64" rx="16" fill="#000000"/><text x="90" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#FFFFFF">Apple Pay</text></svg>`);
+const GOOGLE_PAY_LOGO = makeLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 64"><rect width="190" height="64" rx="16" fill="#FFFFFF" stroke="#DADCE0" stroke-width="2"/><text x="95" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#5F6368">Google Pay</text></svg>`);
+const TABBY_LOGO = makeLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 64"><rect width="160" height="64" rx="18" fill="#3BE8B0"/><text x="80" y="41" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="800" fill="#12211C">tabby</text></svg>`);
+const TAMARA_LOGO = makeLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 64"><rect width="180" height="64" rx="18" fill="#F7E8FF"/><circle cx="34" cy="32" r="15" fill="#09B982"/><text x="104" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="800" fill="#1F2937">tamara</text></svg>`);
+
+type PaymentMethodMeta = {
+  id: string;
+  settingKey: string;
+  enabledKey: string;
+  checkoutUrlKey?: string;
+  label: string;
+  desc: string;
+  fallbackImg: string;
+  cardBg: string;
+  cardBorder: string;
+  walletBg: string;
+  walletText: string;
+  imgClass: string;
+  imgBigClass: string;
+  requiresCard?: boolean;
+};
+
+const METHOD_META: PaymentMethodMeta[] = [
   {
     id: "mada",
     settingKey: "payment_img_mada",
+    enabledKey: "payment_method_mada",
     label: "مدى",
     desc: "بطاقة مدى المصرفية",
-    fallbackImg: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Mada_Logo.svg/320px-Mada_Logo.svg.png",
+    fallbackImg: MADA_LOGO,
     cardBg: "bg-[#0a2240]",
     cardBorder: "border-[#00b4d8]",
     walletBg: "bg-[#0a2240]",
     walletText: "text-[#00b4d8]",
     imgClass: "h-8 w-auto object-contain",
     imgBigClass: "h-12 w-auto object-contain",
+    requiresCard: true,
   },
   {
     id: "stc_pay",
     settingKey: "payment_img_stc",
+    enabledKey: "payment_method_stc",
     label: "STC Pay",
     desc: "محفظة STC Pay",
-    fallbackImg: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/STC_Pay_Logo.svg/320px-STC_Pay_Logo.svg.png",
+    fallbackImg: STC_PAY_LOGO,
     cardBg: "bg-[#7b2d8b]",
     cardBorder: "border-purple-400",
     walletBg: "bg-gradient-to-br from-[#7b2d8b] to-[#4a1060]",
@@ -41,9 +69,10 @@ const METHOD_META = [
   {
     id: "apple_pay",
     settingKey: "payment_img_apple",
+    enabledKey: "payment_method_apple",
     label: "Apple Pay",
     desc: "Apple Pay",
-    fallbackImg: "https://polished-pony-114.convex.cloud/api/storage/0c781a71-e621-42ff-941b-9aeca76e4559",
+    fallbackImg: APPLE_PAY_LOGO,
     cardBg: "bg-black",
     cardBorder: "border-gray-600",
     walletBg: "bg-black",
@@ -54,9 +83,10 @@ const METHOD_META = [
   {
     id: "google_pay",
     settingKey: "payment_img_google",
+    enabledKey: "payment_method_google",
     label: "Google Pay",
     desc: "Google Pay",
-    fallbackImg: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/320px-Google_Pay_Logo.svg.png",
+    fallbackImg: GOOGLE_PAY_LOGO,
     cardBg: "bg-white",
     cardBorder: "border-gray-300",
     walletBg: "bg-white",
@@ -64,7 +94,49 @@ const METHOD_META = [
     imgClass: "h-7 w-auto object-contain",
     imgBigClass: "h-10 w-auto object-contain",
   },
+  {
+    id: "tabby",
+    settingKey: "payment_img_tabby",
+    enabledKey: "payment_method_tabby",
+    checkoutUrlKey: "payment_tabby_checkout_url",
+    label: "Tabby",
+    desc: "ادفع على دفعات عبر Tabby",
+    fallbackImg: TABBY_LOGO,
+    cardBg: "bg-[#3BE8B0]",
+    cardBorder: "border-emerald-300",
+    walletBg: "bg-gradient-to-br from-[#3BE8B0] to-[#19C99A]",
+    walletText: "text-emerald-950",
+    imgClass: "h-8 w-auto object-contain",
+    imgBigClass: "h-12 w-auto object-contain",
+  },
+  {
+    id: "tamara",
+    settingKey: "payment_img_tamara",
+    enabledKey: "payment_method_tamara",
+    checkoutUrlKey: "payment_tamara_checkout_url",
+    label: "Tamara",
+    desc: "ادفع الآن أو لاحقا عبر Tamara",
+    fallbackImg: TAMARA_LOGO,
+    cardBg: "bg-[#F7E8FF]",
+    cardBorder: "border-fuchsia-200",
+    walletBg: "bg-gradient-to-br from-[#F7E8FF] to-[#DDF8EC]",
+    walletText: "text-gray-800",
+    imgClass: "h-8 w-auto object-contain",
+    imgBigClass: "h-12 w-auto object-contain",
+  },
 ];
+
+function buildCheckoutUrl(rawUrl: string, params: Record<string, string | number | undefined>) {
+  try {
+    const url = new URL(rawUrl, window.location.origin);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
+    });
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
 
 export default function PaymentPage({
   bookingId,
@@ -82,12 +154,14 @@ export default function PaymentPage({
   const resendTicket   = useAction(api.emailActions.resendTicket);
 
   // دمج الصور الديناميكية مع البيانات الثابتة
-  const METHODS = METHOD_META.map((m) => ({
-    ...m,
-    imgUrl: (settingsMap?.[m.settingKey] && settingsMap[m.settingKey] !== "")
-      ? settingsMap[m.settingKey]
-      : m.fallbackImg,
-  }));
+  const METHODS = useMemo(() => METHOD_META
+    .filter((m) => settingsMap?.[m.enabledKey] !== "false")
+    .map((m) => ({
+      ...m,
+      imgUrl: (settingsMap?.[m.settingKey] && settingsMap[m.settingKey] !== "")
+        ? settingsMap[m.settingKey]
+        : m.fallbackImg,
+    })), [settingsMap]);
 
   const [method, setMethod]         = useState("mada");
   const [useWallet, setUseWallet]   = useState(false);
@@ -123,14 +197,25 @@ export default function PaymentPage({
 
   const walletBalance    = walletData?.balance ?? 0;
   const hasEnoughWallet  = walletBalance >= booking.totalPrice;
-  const selectedMethod   = METHODS.find((m) => m.id === method)!;
-  const activeMethod     = useWallet ? "wallet" : method;
+  const selectedMethod   = METHODS.find((m) => m.id === method) ?? METHODS[0] ?? { ...METHOD_META[0], imgUrl: METHOD_META[0].fallbackImg };
+  const selectedMethodId = selectedMethod?.id ?? "mada";
+  const activeMethod     = useWallet ? "wallet" : selectedMethodId;
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!useWallet && method === "mada" && (!cardNum || !expiry || !cvv)) {
+    const checkoutUrl = !useWallet && selectedMethod.checkoutUrlKey
+      ? (settingsMap?.[selectedMethod.checkoutUrlKey] ?? "").trim()
+      : "";
+    const paymentMode = settingsMap?.payment_mode ?? "test";
+
+    if (!useWallet && selectedMethod.requiresCard && (!cardNum || !expiry || !cvv)) {
       toast.error("يرجى إدخال بيانات البطاقة كاملة");
+      return;
+    }
+
+    if (!useWallet && selectedMethod.checkoutUrlKey && paymentMode === "live" && !checkoutUrl) {
+      toast.error(`أكمل رابط Checkout الخاص بـ ${selectedMethod.label} من إعدادات الدفع أولا`);
       return;
     }
 
@@ -147,9 +232,25 @@ export default function PaymentPage({
         amount: booking.totalPrice,
         method: activeMethod,
         cardLast4: !useWallet && cardNum ? cardNum.slice(-4) : undefined,
-        cardBrand: !useWallet && method === "mada" ? "mada" : activeMethod,
+        cardBrand: !useWallet && selectedMethod.requiresCard ? "mada" : activeMethod,
+        provider: activeMethod,
+        checkoutUrl: checkoutUrl || undefined,
+        currency: "SAR",
       });
       setTxnId(result.transactionId);
+      if (!useWallet && checkoutUrl) {
+        const redirectUrl = buildCheckoutUrl(checkoutUrl, {
+          bookingId,
+          bookingRef: booking.bookingReference,
+          amount: booking.totalPrice,
+          currency: "SAR",
+          transactionId: result.transactionId,
+          returnUrl: window.location.href,
+        });
+        toast.success(`تم إنشاء طلب الدفع وسيتم تحويلك إلى ${selectedMethod.label}`);
+        window.location.href = redirectUrl;
+        return;
+      }
       await new Promise((r) => setTimeout(r, 2000));
       await confirmPayment({ paymentId: result.paymentId });
       setStep("done");
@@ -415,18 +516,18 @@ export default function PaymentPage({
                     key={m.id}
                     onClick={() => setMethod(m.id)}
                     className={`relative p-4 rounded-2xl border-2 text-right transition-all ${
-                      method === m.id
+                      selectedMethodId === m.id
                         ? "border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-100"
                         : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50"
                     }`}
                   >
-                    {method === m.id && (
+                    {selectedMethodId === m.id && (
                       <div className="absolute top-2 left-2 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
                         <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                       </div>
                     )}
                     <div className={`mb-2.5 flex items-center justify-center h-10 rounded-xl px-2 ${m.cardBg}`}>
-                      <img src={m.imgUrl} alt={m.label} className={m.imgClass} />
+                      <img src={m.imgUrl} alt={m.label} className={m.imgClass} onError={(e) => { (e.currentTarget as HTMLImageElement).src = m.fallbackImg; }} />
                     </div>
                     <div className="font-bold text-gray-800 text-sm">{m.label}</div>
                     <div className="text-xs text-gray-400 mt-0.5">{m.desc}</div>
@@ -436,7 +537,7 @@ export default function PaymentPage({
             </div>
 
             {/* Card Details (for mada) */}
-            {method === "mada" && (
+            {selectedMethod.requiresCard && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
                 <h3 className="font-bold text-gray-700 mb-4 text-sm flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-emerald-600" /> بيانات البطاقة
@@ -479,14 +580,19 @@ export default function PaymentPage({
             )}
 
             {/* Digital Wallet Info */}
-            {method !== "mada" && (
+            {!selectedMethod.requiresCard && (
               <div className={`rounded-2xl border-2 p-5 mb-6 ${selectedMethod.walletBg} ${selectedMethod.cardBorder}`}>
                 <div className="flex items-center gap-4">
                   <div className={`flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center px-2 ${selectedMethod.cardBg}`}>
-                    <img src={selectedMethod.imgUrl} alt={selectedMethod.label} className={selectedMethod.imgBigClass} />
+                    <img src={selectedMethod.imgUrl} alt={selectedMethod.label} className={selectedMethod.imgBigClass} onError={(e) => { (e.currentTarget as HTMLImageElement).src = selectedMethod.fallbackImg; }} />
                   </div>
                   <div>
                     <div className={`font-bold text-sm ${selectedMethod.walletText}`}>الدفع عبر {selectedMethod.label}</div>
+                    {selectedMethod.checkoutUrlKey && !settingsMap?.[selectedMethod.checkoutUrlKey] && (
+                      <div className="mt-2 rounded-lg bg-white/70 px-2 py-1 text-[11px] font-bold text-gray-700">
+                        جاهزة للربط: أضف رابط Checkout من لوحة الإدارة.
+                      </div>
+                    )}
                     <div className={`text-xs mt-0.5 ${selectedMethod.id === "google_pay" ? "text-gray-400" : "text-white/60"}`}>
                       سيتم تحويلك لإتمام الدفع بأمان عبر {selectedMethod.label}
                     </div>

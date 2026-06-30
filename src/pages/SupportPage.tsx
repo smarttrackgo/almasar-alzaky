@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   MessageCircle, Send, ArrowRight, CheckCheck, Check,
   Clock, Headphones, Shield, Zap, ChevronDown,
+  Mail, LogIn, FileText,
 } from "lucide-react";
 import { Id } from "../../convex/_generated/dataModel";
 
@@ -112,6 +113,56 @@ export default function SupportPage({ navigate }: { navigate: (p: Page) => void 
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="w-10 h-10 border-4 border-emerald-400/30 border-t-emerald-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user === null) {
+    return (
+      <div className="min-h-screen bg-gray-50" dir="rtl">
+        <div className="bg-gradient-to-l from-emerald-950 to-emerald-800 text-white px-4 py-8 shadow-lg">
+          <div className="max-w-2xl mx-auto flex items-center gap-4">
+            <button onClick={() => navigate({ name: "home" })} className="p-2 rounded-xl hover:bg-white/10 transition-colors">
+              <ArrowRight className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="font-black text-xl">اتصل بنا</h1>
+              <p className="text-emerald-200 text-sm mt-1">فريق المسار الذكي جاهز لمساعدتك</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
+          <div className="rounded-3xl bg-white border border-gray-100 shadow-sm p-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4">
+              <Headphones className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-black text-gray-900">الدعم داخل التطبيق</h2>
+            <p className="text-sm text-gray-500 leading-7 mt-2">
+              لفتح محادثة مباشرة ومتابعة طلبك، سجل الدخول أولاً ثم افتح صفحة الدعم.
+            </p>
+            <button
+              onClick={() => navigate({ name: "signin" })}
+              className="mt-5 w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white hover:bg-emerald-800 flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              تسجيل الدخول للتواصل
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a href="mailto:support@almasaralzaky.com" className="rounded-2xl bg-white border border-gray-100 p-4 hover:border-emerald-200 transition-colors">
+              <Mail className="w-6 h-6 text-emerald-700 mb-3" />
+              <div className="font-bold text-gray-900">البريد الإلكتروني</div>
+              <div className="text-sm text-gray-500 mt-1" dir="ltr">support@almasaralzaky.com</div>
+            </a>
+            <button onClick={() => navigate({ name: "privacy" })} className="rounded-2xl bg-white border border-gray-100 p-4 text-right hover:border-emerald-200 transition-colors">
+              <FileText className="w-6 h-6 text-emerald-700 mb-3" />
+              <div className="font-bold text-gray-900">الخصوصية والحذف</div>
+              <div className="text-sm text-gray-500 mt-1">تعرف على حقوقك وطريقة حذف الحساب</div>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

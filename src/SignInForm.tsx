@@ -1,78 +1,94 @@
 "use client";
+
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
 import { useState } from "react";
 import { toast } from "sonner";
-
-/**
- * PROTECTED TEMPLATE COMPONENT
- *
- * This authentication form uses locked template styling:
- * - Blue gradient (#3B82F6 to #2563EB) for buttons and accents
- * - Centered compact layout (max-width: 28rem)
- * - White card with subtle shadow
- *
- * Design analysis from uploaded images does NOT apply to this component.
- * DO NOT modify styling to match user designs - auth must remain consistent.
- */
+import { api } from "../convex/_generated/api";
+import {
+  ArrowRight,
+  Building2,
+  Bus,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+  User,
+  UserRound,
+} from "lucide-react";
 
 type AccountType = "pilgrim" | "office" | "driver" | "user";
 
-const ACCOUNT_TYPES: { type: AccountType; label: string; desc: string; color: string; border: string; bg: string }[] = [
+const LOGO = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
+
+const ACCOUNT_TYPES: {
+  type: AccountType;
+  label: string;
+  desc: string;
+  Icon: typeof UserRound;
+  accent: string;
+  active: string;
+}[] = [
   {
     type: "pilgrim",
     label: "معتمر",
-    desc: "أريد حجز برنامج عمرة",
-    color: "text-emerald-700",
-    border: "border-emerald-400",
-    bg: "bg-emerald-50",
+    desc: "حجز البرامج وتتبع الرحلة",
+    Icon: UserRound,
+    accent: "text-emerald-200",
+    active: "border-emerald-300 bg-emerald-400/15 shadow-emerald-950/20",
   },
   {
     type: "office",
     label: "مكتب سفر",
-    desc: "أدير مكتب عمرة وأقدم برامج",
-    color: "text-blue-700",
-    border: "border-blue-400",
-    bg: "bg-blue-50",
+    desc: "إدارة البرامج والحجوزات",
+    Icon: Building2,
+    accent: "text-sky-200",
+    active: "border-sky-300 bg-sky-400/15 shadow-sky-950/20",
   },
   {
     type: "driver",
     label: "سائق",
-    desc: "أعمل سائقاً لنقل المعتمرين",
-    color: "text-amber-700",
-    border: "border-amber-400",
-    bg: "bg-amber-50",
+    desc: "إدارة الرحلات والتتبع",
+    Icon: Bus,
+    accent: "text-amber-200",
+    active: "border-amber-300 bg-amber-400/15 shadow-amber-950/20",
   },
   {
     type: "user",
-    label: "مستخدم عادي",
-    desc: "أتصفح المنصة فقط",
-    color: "text-gray-700",
-    border: "border-gray-400",
-    bg: "bg-gray-50",
+    label: "مستخدم",
+    desc: "تصفح المنصة والخدمات",
+    Icon: User,
+    accent: "text-slate-200",
+    active: "border-slate-200 bg-white/15 shadow-slate-950/20",
   },
 ];
 
 export function SignInForm() {
   const { signIn } = useAuthActions();
+  const cleanupDeletedAccountAuthByEmail = useMutation(api.auth.cleanupDeletedAccountAuthByEmail);
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
-  // خطوة اختيار نوع الحساب — تظهر فقط عند signUp بعد إدخال البيانات
   const [step, setStep] = useState<"form" | "accountType">("form");
   const [selectedType, setSelectedType] = useState<AccountType | null>(null);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const inputStyle = {
-    background: '#FFFFFF',
-    border: '1px solid rgba(229, 231, 235, 0.7)',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)'
+  const isSignIn = flow === "signIn";
+
+  const resetToForm = (nextFlow = flow) => {
+    setFlow(nextFlow);
+    setStep("form");
+    setSelectedType(null);
+    setPendingFormData(null);
   };
-  const inputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.border = '1px solid rgba(59, 130, 246, 0.3)';
-    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.1)';
-  };
-  const inputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.border = '1px solid rgba(229, 231, 235, 0.7)';
-    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.04)';
+
+  const cleanupDeletedAccount = async (formData: FormData) => {
+    const email = String(formData.get("email") ?? "").trim();
+    if (!email) return;
+    await cleanupDeletedAccountAuthByEmail({ email });
   };
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -81,39 +97,41 @@ export function SignInForm() {
     formData.set("flow", flow);
 
     if (flow === "signUp") {
-      // عند التسجيل: احفظ البيانات وانتقل لاختيار نوع الحساب
       setPendingFormData(formData);
       setStep("accountType");
-    } else {
-      // عند تسجيل الدخول: أكمل مباشرة
-      setSubmitting(true);
-      void signIn("password", formData).catch((error) => {
-        let toastTitle = "";
-        if (error.message.includes("InvalidAccountId")) {
-          toastTitle = "البريد الإلكتروني غير مسجل. أنشئ حساباً أولاً.";
-        } else if (error.message.includes("Invalid password")) {
-          toastTitle = "كلمة المرور غير صحيحة. حاول مرة أخرى.";
-        } else {
-          toastTitle = "تعذّر تسجيل الدخول. تحقق من بياناتك.";
-        }
-        toast.error(toastTitle);
-        setSubmitting(false);
-      });
+      return;
     }
+
+    setSubmitting(true);
+    void cleanupDeletedAccount(formData).then(() => signIn("password", formData)).catch((error) => {
+      let toastTitle = "";
+      if (error.message.includes("InvalidAccountId")) {
+        toastTitle = "البريد الإلكتروني غير مسجل. أنشئ حساباً أولاً.";
+      } else if (error.message.includes("Invalid password")) {
+        toastTitle = "كلمة المرور غير صحيحة. حاول مرة أخرى.";
+      } else {
+        toastTitle = "تعذر تسجيل الدخول. تحقق من بياناتك.";
+      }
+      toast.error(toastTitle);
+      setSubmitting(false);
+    });
   };
 
   const handleCompleteSignUp = () => {
-    if (!selectedType) { toast.error("يرجى اختيار نوع الحساب"); return; }
+    if (!selectedType) {
+      toast.error("يرجى اختيار نوع الحساب");
+      return;
+    }
     if (!pendingFormData) return;
-    // أضف نوع الحساب إلى البيانات
+
     pendingFormData.set("accountType", selectedType);
     setSubmitting(true);
-    void signIn("password", pendingFormData).catch((error) => {
+    void cleanupDeletedAccount(pendingFormData).then(() => signIn("password", pendingFormData)).catch((error) => {
       let toastTitle = "";
       if (error.message.includes("already exists") || error.message.includes("AccountAlreadyExists")) {
-        toastTitle = "البريد الإلكتروني مسجل مسبقاً. سجّل دخولك.";
+        toastTitle = "البريد الإلكتروني مسجل مسبقاً. سجل دخولك.";
       } else {
-        toastTitle = "تعذّر إنشاء الحساب. حاول مرة أخرى.";
+        toastTitle = "تعذر إنشاء الحساب. حاول مرة أخرى.";
       }
       toast.error(toastTitle);
       setSubmitting(false);
@@ -122,236 +140,190 @@ export function SignInForm() {
   };
 
   return (
-    <div
-      className="flex items-center justify-center relative"
-      style={{ maxWidth: '100vw', overflow: 'hidden', minHeight: 'auto', padding: '2rem' }}
-    >
-      {/* Decorative gradient circles */}
-      <div className="absolute top-0 right-0 w-64 h-64 opacity-10 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #ffffff, transparent)', transform: 'translate(30%, -30%)', filter: 'blur(40px)' }} />
-      <div className="absolute bottom-0 left-0 w-48 h-48 opacity-10 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #ffffff, transparent)', transform: 'translate(-30%, 30%)', filter: 'blur(30px)' }} />
+    <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/20 bg-white/10 shadow-2xl shadow-emerald-950/30 backdrop-blur-2xl" dir="rtl">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-amber-200/80 to-transparent" />
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.16),rgba(255,255,255,0.045)_48%,rgba(16,185,129,0.11))]" />
 
-      {/* Auth card */}
-      <div className="w-full rounded-2xl shadow-2xl overflow-hidden relative z-10"
-        style={{ maxWidth: '28rem', margin: '0 auto', background: 'linear-gradient(to bottom, #FFFFFF, #FAFAFA)' }}
-      >
-        <div className="p-8" dir="rtl">
-
-          {/* ── خطوة اختيار نوع الحساب ── */}
-          {step === "accountType" ? (
+      <div className="relative p-5 sm:p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-white/12 p-2 shadow-lg">
+              <img src={LOGO} alt="المسار الذكي" className="h-full w-full object-contain" style={{ mixBlendMode: "screen" }} />
+            </div>
             <div>
-              <div className="text-center mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mx-auto mb-3 shadow-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold" style={{ color: '#111827' }}>ما نوع حسابك؟</h2>
-                <p className="text-sm mt-1" style={{ color: '#6B7280' }}>اختر نوع حسابك — لا يمكن تغييره لاحقاً</p>
-              </div>
+              <div className="text-base font-black text-white">المسار الذكي</div>
+              <div className="text-xs font-semibold text-emerald-100/70">دخول آمن للمنصة</div>
+            </div>
+          </div>
+          <div className="hidden items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-bold text-emerald-100 sm:flex">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            موثق
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                {ACCOUNT_TYPES.map((at) => (
+        {step === "accountType" ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => resetToForm()}
+              className="mb-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-100/80 hover:text-white"
+            >
+              <ArrowRight className="h-4 w-4" />
+              العودة للبيانات
+            </button>
+
+            <div className="mb-5">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-200/20 bg-amber-300/10 px-3 py-1 text-xs font-bold text-amber-100">
+                <Sparkles className="h-3.5 w-3.5" />
+                خطوة أخيرة
+              </div>
+              <h2 className="text-2xl font-black text-white">اختر نوع حسابك</h2>
+              <p className="mt-1 text-sm leading-6 text-emerald-50/70">سيتم تخصيص لوحة التحكم والصلاحيات بناءً على هذا الاختيار.</p>
+            </div>
+
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {ACCOUNT_TYPES.map(({ type, label, desc, Icon, accent, active }) => {
+                const selected = selectedType === type;
+                return (
                   <button
-                    key={at.type}
+                    key={type}
                     type="button"
-                    onClick={() => setSelectedType(at.type)}
-                    className={`p-4 rounded-xl border-2 text-right transition-all ${
-                      selectedType === at.type
-                        ? `${at.border} ${at.bg} shadow-md`
-                        : "border-gray-200 bg-white hover:border-gray-300"
+                    onClick={() => setSelectedType(type)}
+                    className={`group relative min-h-[116px] rounded-2xl border p-4 text-right shadow-lg transition-all ${
+                      selected ? active : "border-white/12 bg-white/8 hover:border-white/25 hover:bg-white/12"
                     }`}
                   >
-                    <div className={`font-bold text-sm ${selectedType === at.type ? at.color : "text-gray-800"}`}>
-                      {at.label}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5 leading-tight">{at.desc}</div>
-                    {selectedType === at.type && (
-                      <div className={`mt-2 w-4 h-4 rounded-full ${at.bg} border-2 ${at.border} flex items-center justify-center`}>
-                        <div className={`w-2 h-2 rounded-full ${at.border.replace("border-", "bg-")}`} />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={`rounded-2xl border border-white/15 bg-white/10 p-2.5 ${selected ? accent : "text-white/75"}`}>
+                        <Icon className="h-5 w-5" />
                       </div>
-                    )}
+                      {selected && <CheckCircle2 className="h-5 w-5 text-emerald-100" />}
+                    </div>
+                    <div className="mt-4 text-sm font-black text-white">{label}</div>
+                    <div className="mt-1 text-xs leading-5 text-white/58">{desc}</div>
                   </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCompleteSignUp}
-                disabled={!selectedType || submitting}
-                className="w-full px-4 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
-                style={{
-                  background: selectedType ? 'linear-gradient(to right, #3B82F6, #2563EB)' : '#9CA3AF',
-                  color: '#FFFFFF',
-                  boxShadow: selectedType ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none',
-                }}
-              >
-                {submitting ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStep("form"); setSelectedType(null); }}
-                className="w-full text-center text-sm"
-                style={{ color: '#6B7280' }}
-              >
-                ← العودة
-              </button>
+                );
+              })}
             </div>
-          ) : (
-            /* ── خطوة إدخال البيانات ── */
-            <div>
-              <h2 className="text-2xl font-bold mb-2 text-center" style={{ color: '#111827' }}>
-                {flow === "signIn" ? "مرحبًا بعودتك" : "إنشاء حساب"}
-              </h2>
-              <p className="text-sm mb-6 text-center" style={{ color: '#6B7280' }}>
-                {flow === "signIn" ? "سجّل دخولك للمتابعة إلى حسابك" : "أنشئ حسابًا للبدء"}
-              </p>
 
-              <form className="flex flex-col gap-4" onSubmit={handleFormSubmit}>
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#374151' }}>
-                    البريد الإلكتروني
-                  </label>
-                  <input
-                    type="email" name="email" placeholder="you@example.com" required
-                    className="w-full px-4 py-3 rounded-lg transition-all duration-200 outline-none text-right"
-                    style={inputStyle} onFocus={inputFocus} onBlur={inputBlur}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#374151' }}>
-                    كلمة المرور
-                  </label>
-                  <input
-                    type="password" name="password" placeholder="••••••••" required
-                    className="w-full px-4 py-3 rounded-lg transition-all duration-200 outline-none text-right"
-                    style={inputStyle} onFocus={inputFocus} onBlur={inputBlur}
-                  />
-                </div>
-
-                {flow === "signUp" && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 text-right">
-                    ستختار نوع حسابك في الخطوة التالية
-                  </div>
-                )}
-
+            <button
+              type="button"
+              onClick={handleCompleteSignUp}
+              disabled={!selectedType || submitting}
+              className="w-full rounded-2xl bg-gradient-to-l from-emerald-500 via-emerald-600 to-emerald-800 px-5 py-3.5 text-sm font-black text-white shadow-xl shadow-emerald-950/25 transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {submitting ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب"}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="mb-6">
+              <div className="mb-3 inline-flex rounded-2xl border border-white/14 bg-black/12 p-1">
                 <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full px-4 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: 'linear-gradient(to right, #3B82F6, #2563EB)',
-                    color: '#FFFFFF',
-                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                    transform: 'translateY(0)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!submitting) {
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
+                  type="button"
+                  onClick={() => resetToForm("signIn")}
+                  className={`rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    isSignIn ? "bg-white text-emerald-950 shadow" : "text-white/65 hover:text-white"
+                  }`}
                 >
-                  {submitting ? "جارٍ التحميل..." : (flow === "signIn" ? "تسجيل الدخول" : "التالي — اختيار نوع الحساب")}
+                  تسجيل الدخول
                 </button>
+                <button
+                  type="button"
+                  onClick={() => resetToForm("signUp")}
+                  className={`rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    !isSignIn ? "bg-white text-emerald-950 shadow" : "text-white/65 hover:text-white"
+                  }`}
+                >
+                  حساب جديد
+                </button>
+              </div>
+              <h2 className="text-2xl font-black text-white">{isSignIn ? "مرحباً بعودتك" : "ابدأ حسابك في المسار الذكي"}</h2>
+              <p className="mt-1 text-sm leading-6 text-emerald-50/70">
+                {isSignIn ? "ادخل بياناتك للوصول إلى لوحة حسابك." : "أنشئ حسابك ثم اختر نوع المستخدم المناسب لك."}
+              </p>
+            </div>
 
-                <div className="text-center text-sm" style={{ color: '#6B7280' }}>
-                  <span>{flow === "signIn" ? "ليس لديك حساب؟ " : "لديك حساب بالفعل؟ "}</span>
+            <form className="space-y-4" onSubmit={handleFormSubmit}>
+              <label className="block">
+                <span className="mb-2 block text-xs font-black text-emerald-50/80">البريد الإلكتروني</span>
+                <div className="flex items-center gap-3 rounded-2xl border border-white/16 bg-white/10 px-4 py-3 text-white shadow-inner shadow-black/10 transition focus-within:border-amber-200/70 focus-within:bg-white/14">
+                  <Mail className="h-5 w-5 text-emerald-100/75" />
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold text-white outline-none placeholder:text-white/35"
+                    autoComplete="email"
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-black text-emerald-50/80">كلمة المرور</span>
+                <div className="flex items-center gap-3 rounded-2xl border border-white/16 bg-white/10 px-4 py-3 text-white shadow-inner shadow-black/10 transition focus-within:border-amber-200/70 focus-within:bg-white/14">
+                  <LockKeyhole className="h-5 w-5 text-emerald-100/75" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="••••••••"
+                    required
+                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold text-white outline-none placeholder:text-white/35"
+                    autoComplete={isSignIn ? "current-password" : "new-password"}
+                  />
                   <button
                     type="button"
-                    className="font-medium cursor-pointer transition-colors duration-200"
-                    style={{ color: '#3B82F6' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = '#2563EB'; e.currentTarget.style.textDecoration = 'underline'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = '#3B82F6'; e.currentTarget.style.textDecoration = 'none'; }}
-                    onClick={() => { setFlow(flow === "signIn" ? "signUp" : "signIn"); setStep("form"); }}
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="rounded-lg p-1 text-white/55 hover:bg-white/10 hover:text-white"
+                    aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                   >
-                    {flow === "signIn" ? "أنشئ حسابًا" : "سجّل دخولك"}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-              </form>
+              </label>
 
-              {/* ── فاصل "أو" ── */}
-              <div className="flex items-center gap-3 my-4">
-                <div className="flex-1 h-px" style={{ background: 'rgba(229,231,235,0.8)' }} />
-                <span className="text-xs font-medium" style={{ color: '#9CA3AF' }}>أو تابع بـ</span>
-                <div className="flex-1 h-px" style={{ background: 'rgba(229,231,235,0.8)' }} />
-              </div>
+              {!isSignIn && (
+                <div className="rounded-2xl border border-amber-200/20 bg-amber-300/10 px-4 py-3 text-xs font-semibold leading-6 text-amber-50/85">
+                  بعد هذه الخطوة ستختار نوع الحساب: معتمر، مكتب، سائق، أو مستخدم.
+                </div>
+              )}
 
-              {/* ── أزرار Google و Apple ── */}
-              <div className="flex flex-col gap-3">
-                {/* Google */}
-                <button
-                  type="button"
-                  onClick={() => toast.info("تسجيل الدخول عبر Google سيكون متاحاً قريباً")}
-                  className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 border"
-                  style={{
-                    background: '#FFFFFF',
-                    border: '1px solid rgba(229,231,235,0.9)',
-                    color: '#374151',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-                    e.currentTarget.style.borderColor = 'rgba(209,213,219,1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)';
-                    e.currentTarget.style.borderColor = 'rgba(229,231,235,0.9)';
-                  }}
-                >
-                  {/* Google SVG Logo */}
-                  <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M47.532 24.552c0-1.636-.132-3.2-.388-4.704H24.48v8.898h12.984c-.56 3.02-2.26 5.576-4.816 7.292v6.064h7.796c4.56-4.2 7.088-10.388 7.088-17.55z" fill="#4285F4"/>
-                    <path d="M24.48 48c6.516 0 11.984-2.16 15.98-5.896l-7.796-6.064c-2.16 1.448-4.924 2.304-8.184 2.304-6.296 0-11.628-4.252-13.536-9.968H2.9v6.256C6.876 42.892 15.108 48 24.48 48z" fill="#34A853"/>
-                    <path d="M10.944 28.376A14.46 14.46 0 0 1 10.2 24c0-1.516.26-2.988.744-4.376V13.368H2.9A23.96 23.96 0 0 0 .48 24c0 3.868.928 7.528 2.42 10.632l8.044-6.256z" fill="#FBBC05"/>
-                    <path d="M24.48 9.556c3.548 0 6.732 1.22 9.236 3.62l6.924-6.924C36.456 2.392 30.988 0 24.48 0 15.108 0 6.876 5.108 2.9 13.368l8.044 6.256c1.908-5.716 7.24-10.068 13.536-10.068z" fill="#EA4335"/>
-                  </svg>
-                  <span className="text-sm">المتابعة عبر Google</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E', fontSize: '10px' }}>قريباً</span>
-                </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-2xl bg-gradient-to-l from-amber-300 via-emerald-400 to-emerald-600 px-5 py-3.5 text-sm font-black text-emerald-950 shadow-xl shadow-emerald-950/25 transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? "جارٍ المعالجة..." : isSignIn ? "دخول إلى المنصة" : "التالي"}
+              </button>
+            </form>
 
-                {/* Apple */}
-                <button
-                  type="button"
-                  onClick={() => toast.info("تسجيل الدخول عبر Apple سيكون متاحاً قريباً")}
-                  className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200"
-                  style={{
-                    background: '#111827',
-                    color: '#FFFFFF',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#1F2937';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#111827';
-                    e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.15)';
-                  }}
-                >
-                  {/* Apple SVG Logo */}
-                  <svg width="16" height="18" viewBox="0 0 814 1000" fill="white" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-155.5-127.4C46 790.7 0 663 0 541.8c0-207.5 135.4-317.3 269-317.3 70.1 0 128.4 46.4 172.5 46.4 42.8 0 109.6-49 192.5-49 30.8 0 108.2 2.6 168.6 71.9zm-174.5-89.3c-27.5-30.8-68.7-53.4-110.5-53.4-5.8 0-11.6.6-17.4 1.3 1.3-6.5 1.9-13 1.9-19.5 0-57.8-30.8-115.6-78.1-152.4C368.4 3.2 320.4 0 280.3 0c-5.8 0-11.6.6-17.4 1.3 1.3 6.5 1.9 13 1.9 19.5 0 57.8 30.8 115.6 78.1 152.4 44.1 34.5 92.1 53.4 140.1 53.4 5.8 0 11.6-.6 17.4-1.3z"/>
-                  </svg>
-                  <span className="text-sm">المتابعة عبر Apple</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', color: '#D1D5DB', fontSize: '10px' }}>قريباً</span>
-                </button>
-              </div>
-
-              {/* ملاحظة صغيرة */}
-              <p className="text-center text-xs mt-4" style={{ color: '#9CA3AF' }}>
-                سيتم إضافة تسجيل الدخول الاجتماعي قريباً
-              </p>
+            <div className="my-5 flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/12" />
+              <span className="text-xs font-bold text-white/45">خيارات إضافية</span>
+              <div className="h-px flex-1 bg-white/12" />
             </div>
-          )}
-        </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => toast.info("تسجيل الدخول عبر Google سيكون متاحاً قريباً")}
+                className="rounded-2xl border border-white/14 bg-white/10 px-3 py-3 text-xs font-black text-white transition hover:bg-white/15"
+              >
+                Google
+                <span className="mt-1 block text-[10px] font-bold text-white/45">قريباً</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => toast.info("تسجيل الدخول عبر Apple سيكون متاحاً قريباً")}
+                className="rounded-2xl border border-white/14 bg-black/20 px-3 py-3 text-xs font-black text-white transition hover:bg-black/30"
+              >
+                Apple
+                <span className="mt-1 block text-[10px] font-bold text-white/45">قريباً</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

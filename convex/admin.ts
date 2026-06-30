@@ -175,10 +175,138 @@ export const generateLogoUploadUrl = mutation({
 });
 
 // ── حذف مستخدم كامل مع جميع بياناته ──
+async function deleteAll(ctx: any, docs: any[]) {
+  for (const doc of docs) {
+    if (doc) await ctx.db.delete(doc._id);
+  }
+}
+
+async function deleteBookingCascade(ctx: any, bookingId: any) {
+  const booking = await ctx.db.get(bookingId);
+  if (!booking) return;
+
+  await deleteAll(ctx, await ctx.db.query("payments").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+  await deleteAll(ctx, await ctx.db.query("commissions").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+  await deleteAll(ctx, await ctx.db.query("reviews").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+  await deleteAll(ctx, await ctx.db.query("walletTransactions").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+  await deleteAll(ctx, await ctx.db.query("whatsappLogs").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+  await deleteAll(ctx, await ctx.db.query("smsLogs").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+  await deleteAll(ctx, await ctx.db.query("emailLogs").withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId)).collect());
+
+  await ctx.db.delete(bookingId);
+}
+
+async function deleteOfficeCascade(ctx: any, officeId: any) {
+  const office = await ctx.db.get(officeId);
+  if (!office) return;
+
+  const officeBookings = await ctx.db.query("bookings").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect();
+  for (const booking of officeBookings) await deleteBookingCascade(ctx, booking._id);
+
+  const packages = await ctx.db.query("packages").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect();
+  for (const pkg of packages) {
+    const packageBookings = await ctx.db.query("bookings").withIndex("by_package", (q: any) => q.eq("packageId", pkg._id)).collect();
+    for (const booking of packageBookings) await deleteBookingCascade(ctx, booking._id);
+    await ctx.db.delete(pkg._id);
+  }
+
+  await deleteAll(ctx, await ctx.db.query("buses").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect());
+  await deleteAll(ctx, await ctx.db.query("payments").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect());
+  await deleteAll(ctx, await ctx.db.query("commissions").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect());
+  await deleteAll(ctx, await ctx.db.query("reviews").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect());
+  await deleteAll(ctx, await ctx.db.query("whatsappLogs").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect());
+  await deleteAll(ctx, (await ctx.db.query("smsLogs").collect()).filter((log: any) => log.officeId === officeId));
+
+  const trips = await ctx.db.query("trips").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect();
+  for (const trip of trips) await ctx.db.delete(trip._id);
+
+  const officeDrivers = await ctx.db.query("drivers").withIndex("by_office", (q: any) => q.eq("officeId", officeId)).collect();
+  for (const driver of officeDrivers) {
+    await ctx.db.patch(driver._id, { officeId: undefined, busId: undefined });
+  }
+
+  await ctx.db.delete(officeId);
+}
+
+async function deleteAuthAccountCascade(ctx: any, accountId: any) {
+  await deleteAll(ctx, await ctx.db.query("authVerificationCodes").withIndex("accountId", (q: any) => q.eq("accountId", accountId)).collect());
+  const account = await ctx.db.get(accountId);
+  if (account) await ctx.db.delete(accountId);
+}
+
+async function deleteAuthForUser(ctx: any, userId: any, email?: string) {
+  const accounts = await ctx.db.query("authAccounts").withIndex("userIdAndProvider", (q: any) => q.eq("userId", userId)).collect();
+  for (const account of accounts) await deleteAuthAccountCascade(ctx, account._id);
+
+  const sessions = await ctx.db.query("authSessions").withIndex("userId", (q: any) => q.eq("userId", userId)).collect();
+  for (const session of sessions) {
+    await deleteAll(ctx, await ctx.db.query("authRefreshTokens").withIndex("sessionId", (q: any) => q.eq("sessionId", session._id)).collect());
+    await deleteAll(ctx, (await ctx.db.query("authVerifiers").collect()).filter((v: any) => v.sessionId === session._id));
+    await ctx.db.delete(session._id);
+  }
+
+  if (!email) return;
+  const identifiers = Array.from(new Set([email.trim(), email.trim().toLowerCase()])).filter(Boolean);
+  for (const identifier of identifiers) {
+    await deleteAll(ctx, await ctx.db.query("authRateLimits").withIndex("identifier", (q: any) => q.eq("identifier", identifier)).collect());
+    await deleteAll(ctx, await ctx.db.query("passwordResetCodes").withIndex("by_email", (q: any) => q.eq("email", identifier)).collect());
+  }
+}
+
+async function deleteUserOwnedData(ctx: any, userId: any, email?: string) {
+  const offices = await ctx.db.query("offices").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect();
+  for (const office of offices) await deleteOfficeCascade(ctx, office._id);
+
+  const bookings = await ctx.db.query("bookings").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect();
+  for (const booking of bookings) await deleteBookingCascade(ctx, booking._id);
+
+  const driverRecords = await ctx.db.query("drivers").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect();
+  for (const driver of driverRecords) {
+    const trips = await ctx.db.query("trips").withIndex("by_driver", (q: any) => q.eq("driverId", driver._id)).collect();
+    for (const trip of trips) await ctx.db.patch(trip._id, { driverId: undefined, driverStatus: "pending" });
+    await ctx.db.delete(driver._id);
+  }
+
+  const supervisedTrips = (await ctx.db.query("trips").collect()).filter((trip: any) => trip.supervisorId === userId);
+  for (const trip of supervisedTrips) await ctx.db.patch(trip._id, { supervisorId: undefined });
+
+  await deleteAll(ctx, await ctx.db.query("notifications").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+  await deleteAll(ctx, await ctx.db.query("walletTransactions").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+  await deleteAll(ctx, await ctx.db.query("companions").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+  await deleteAll(ctx, await ctx.db.query("aiChats").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+  await deleteAll(ctx, await ctx.db.query("payments").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+  await deleteAll(ctx, await ctx.db.query("whatsappLogs").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+  await deleteAll(ctx, await ctx.db.query("smsLogs").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect());
+
+  const chats = await ctx.db.query("supportChats").withIndex("by_user", (q: any) => q.eq("userId", userId)).collect();
+  for (const chat of chats) {
+    await deleteAll(ctx, await ctx.db.query("supportMessages").withIndex("by_chat", (q: any) => q.eq("chatId", chat._id)).collect());
+    await ctx.db.delete(chat._id);
+  }
+  await deleteAll(ctx, await ctx.db.query("supportMessages").withIndex("by_sender", (q: any) => q.eq("senderId", userId)).collect());
+
+  await deleteAll(ctx, (await ctx.db.query("reviews").collect()).filter((review: any) => review.userId === userId));
+  await deleteAll(ctx, (await ctx.db.query("whatsappLogs").collect()).filter((log: any) => log.sentBy === userId));
+  await deleteAll(ctx, (await ctx.db.query("emailLogs").collect()).filter((log: any) => log.userId === userId));
+  await deleteAll(ctx, (await ctx.db.query("otpCodes").collect()).filter((code: any) => code.userId === userId || (email && code.email === email)));
+}
+
 export const deleteUser = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const adminId = await requireAdmin(ctx);
+    {
+    if (args.userId === adminId) throw new ConvexError("لا يمكنك حذف حسابك الخاص");
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) return { deleted: false };
+
+    await deleteUserOwnedData(ctx, args.userId, user.email);
+    await deleteAuthForUser(ctx, args.userId, user.email);
+    await ctx.db.delete(args.userId);
+
+    return { deleted: true };
+    }
     if (args.userId === adminId) throw new ConvexError("لا يمكنك حذف حسابك الخاص");
 
     // 1. حذف الإشعارات
@@ -256,14 +384,14 @@ export const deleteUser = mutation({
       .query("drivers")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first();
-    if (driverRecord) await ctx.db.delete(driverRecord._id);
+    if (driverRecord) await ctx.db.delete((driverRecord as any)._id);
 
     // 8. حذف سجلات OTP
     const user = await ctx.db.get(args.userId);
     if (user?.email) {
       const otps = await ctx.db
         .query("otpCodes")
-        .withIndex("by_email", (q) => q.eq("email", user.email!))
+        .withIndex("by_email", (q) => q.eq("email", (user as any).email))
         .collect();
       for (const o of otps) await ctx.db.delete(o._id);
     }
@@ -305,6 +433,51 @@ export const deleteUser = mutation({
 });
 
 // ── إضافة مكتب جديد من الأدمن ──
+export const cleanupOrphanedAuthRecords = mutation({
+  args: { email: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const email = args.email?.trim();
+    const identifiers = email ? Array.from(new Set([email, email.toLowerCase()])) : null;
+    let removedAccounts = 0;
+    let removedSessions = 0;
+
+    const authAccounts = identifiers
+      ? (await Promise.all(identifiers.map((identifier) =>
+          ctx.db.query("authAccounts").withIndex("providerAndAccountId", (q: any) =>
+            q.eq("provider", "password").eq("providerAccountId", identifier),
+          ).collect(),
+        ))).flat()
+      : await ctx.db.query("authAccounts").collect();
+
+    for (const account of authAccounts) {
+      const user = await ctx.db.get(account.userId);
+      if (user) continue;
+      await deleteAuthAccountCascade(ctx, account._id);
+      removedAccounts += 1;
+    }
+
+    const sessions = await ctx.db.query("authSessions").collect();
+    for (const session of sessions) {
+      const user = await ctx.db.get(session.userId);
+      if (user) continue;
+      await deleteAll(ctx, await ctx.db.query("authRefreshTokens").withIndex("sessionId", (q: any) => q.eq("sessionId", session._id)).collect());
+      await deleteAll(ctx, (await ctx.db.query("authVerifiers").collect()).filter((v: any) => v.sessionId === session._id));
+      await ctx.db.delete(session._id);
+      removedSessions += 1;
+    }
+
+    if (identifiers) {
+      for (const identifier of identifiers) {
+        await deleteAll(ctx, await ctx.db.query("authRateLimits").withIndex("identifier", (q: any) => q.eq("identifier", identifier)).collect());
+        await deleteAll(ctx, await ctx.db.query("passwordResetCodes").withIndex("by_email", (q: any) => q.eq("email", identifier)).collect());
+      }
+    }
+
+    return { removedAccounts, removedSessions };
+  },
+});
+
 export const adminCreateOffice = mutation({
   args: {
     name: v.string(),

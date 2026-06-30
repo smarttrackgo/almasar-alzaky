@@ -2,6 +2,11 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+function settingToString(value: string | number | boolean | null | undefined) {
+  if (value === null || value === undefined) return null;
+  return String(value);
+}
+
 export const logSMS = internalMutation({
   args: {
     phone:       v.string(),
@@ -84,7 +89,7 @@ export const getSetting = query({
   args: { key: v.string() },
   handler: async (ctx, args): Promise<string | null> => {
     const row = await ctx.db.query("appSettings").withIndex("by_key", (q) => q.eq("key", args.key)).first();
-    return row?.value ?? null;
+    return settingToString(row?.value);
   },
 });
 
@@ -99,7 +104,7 @@ export const adminGetSettings = query({
     const result: Record<string, string> = {};
     for (const key of keys) {
       const row = await ctx.db.query("appSettings").withIndex("by_key", (q) => q.eq("key", key)).first();
-      result[key] = row?.value ?? "";
+      result[key] = settingToString(row?.value) ?? "";
     }
     return result;
   },

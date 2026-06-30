@@ -55,18 +55,18 @@ export function SignOutButton() {
           setOpen((v) => !v);
           setView("menu");
         }}
-        className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors hover:bg-gray-100"
+        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-white transition-colors hover:bg-white/10"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-semibold">
+        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-300 text-emerald-950 text-xs font-semibold">
           {initials}
         </span>
-        <span className="hidden sm:inline text-sm font-medium text-gray-700 max-w-[10rem] truncate">
+        <span className="hidden sm:inline text-sm font-medium text-white/85 max-w-[10rem] truncate">
           {email}
         </span>
         {user?.isAdmin && (
-          <span className="hidden sm:inline px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+          <span className="hidden sm:inline px-2 py-0.5 text-xs font-semibold rounded-full bg-white text-emerald-900">
             Admin
           </span>
         )}
@@ -77,7 +77,7 @@ export function SignOutButton() {
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
-          className="text-gray-400"
+          className="text-white/55"
         >
           <path d="M3 4.5l3 3 3-3" />
         </svg>

@@ -211,14 +211,16 @@ export default function QuranPage({ navigate }: { navigate: (p: Page) => void })
     return Number.isFinite(saved) && saved >= 1 && saved <= 604 ? saved : 1;
   });
   const [mushafLoaded, setMushafLoaded] = useState(false);
+  const [pageTurn, setPageTurn] = useState<"idle" | "next" | "prev">("idle");
   const audioRef = useRef<HTMLAudioElement>(null);
+  const mushafTouchStartRef = useRef<number | null>(null);
 
   const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${selectedReciter.name} سورة ${selectedSurah.name} تلاوة مرئية`)}`;
 
   const readingPages = Array.from({ length: Math.ceil(readingAyahs.length / 8) }, (_, i) =>
     readingAyahs.slice(i * 8, i * 8 + 8)
   );
-  const mushafImageUrl = `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${String(mushafPage).padStart(3, "0")}.png`;
+  const mushafImageUrl = (page: number) => `https://quran.islam-db.com/data/pages/quranpages_1024/images/page${String(page).padStart(3, "0")}.png`;
 
   const filteredSurahs = SURAHS.filter(s => {
     const matchSearch = s.name.includes(search) || String(s.num).includes(search);
@@ -546,6 +548,25 @@ export default function QuranPage({ navigate }: { navigate: (p: Page) => void })
     setIsMuted(v === 0);
   };
 
+  const goToMushafPage = (nextPage: number, direction: "next" | "prev" | "idle" = "idle") => {
+    const clamped = Math.min(604, Math.max(1, Math.round(nextPage)));
+    if (clamped === mushafPage && direction !== "idle") return;
+    setPageTurn(direction);
+    setMushafLoaded(false);
+    setMushafPage(clamped);
+    window.setTimeout(() => setPageTurn("idle"), 360);
+  };
+
+  const handleMushafTouchEnd = (clientX: number) => {
+    const startX = mushafTouchStartRef.current;
+    mushafTouchStartRef.current = null;
+    if (startX === null) return;
+    const delta = clientX - startX;
+    if (Math.abs(delta) < 45) return;
+    if (delta < 0) goToMushafPage(mushafPage + 1, "next");
+    else goToMushafPage(mushafPage - 1, "prev");
+  };
+
   const toggleMute = () => {
     if (!audioRef.current) return;
     const next = !isMuted;
@@ -586,7 +607,7 @@ export default function QuranPage({ navigate }: { navigate: (p: Page) => void })
           <div className="max-w-5xl mx-auto px-3 py-5">
             <div className="flex items-center justify-between gap-2 mb-4">
               <button
-                onClick={() => setMushafPage((p) => Math.max(1, p - 1))}
+                onClick={() => goToMushafPage(mushafPage - 1, "prev")}
                 disabled={mushafPage === 1}
                 className="px-4 py-3 rounded-xl bg-white text-stone-800 border border-amber-200 font-black shadow-sm disabled:opacity-40"
               >
@@ -601,13 +622,13 @@ export default function QuranPage({ navigate }: { navigate: (p: Page) => void })
                   value={mushafPage}
                   onChange={(e) => {
                     const next = Math.min(604, Math.max(1, Number(e.target.value) || 1));
-                    setMushafPage(next);
+                    goToMushafPage(next);
                   }}
                   className="w-16 text-center font-black text-stone-900 outline-none"
                 />
               </div>
               <button
-                onClick={() => setMushafPage((p) => Math.min(604, p + 1))}
+                onClick={() => goToMushafPage(mushafPage + 1, "next")}
                 disabled={mushafPage === 604}
                 className="px-4 py-3 rounded-xl bg-amber-800 text-white font-black shadow-sm disabled:opacity-40"
               >
@@ -615,21 +636,51 @@ export default function QuranPage({ navigate }: { navigate: (p: Page) => void })
               </button>
             </div>
 
-            <div className="relative mx-auto max-w-[760px]">
+            <div
+              className="relative mx-auto max-w-[980px]"
+              onTouchStart={(e) => { mushafTouchStartRef.current = e.touches[0]?.clientX ?? null; }}
+              onTouchEnd={(e) => handleMushafTouchEnd(e.changedTouches[0]?.clientX ?? 0)}
+            >
               {!mushafLoaded && (
                 <div className="absolute inset-0 z-10 min-h-[70vh] flex items-center justify-center rounded-2xl bg-white/70">
                   <Loader2 className="w-9 h-9 text-amber-800 animate-spin" />
                 </div>
               )}
-              <div className="rounded-[18px] bg-[#fdf8ea] p-2 md:p-4 shadow-2xl border border-amber-300 transition-transform duration-300">
-                <img
-                  key={mushafPage}
-                  src={mushafImageUrl}
-                  alt={`صفحة ${mushafPage} من المصحف الشريف`}
-                  onLoad={() => setMushafLoaded(true)}
-                  className={`w-full rounded-xl select-none transition-all duration-300 ${mushafLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.98]"}`}
-                  draggable={false}
-                />
+              <div
+                className={`relative rounded-[22px] bg-[#5a341d] p-3 md:p-5 shadow-2xl border border-amber-700 transition-transform duration-300 ${
+                  pageTurn === "next" ? "-translate-x-1 scale-[0.99]" : pageTurn === "prev" ? "translate-x-1 scale-[0.99]" : ""
+                }`}
+                style={{ perspective: "1400px" }}
+              >
+                <div className="absolute inset-y-5 left-1/2 hidden md:block w-px bg-amber-950/30 shadow-[0_0_24px_rgba(0,0,0,0.45)]" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-0 rounded-2xl overflow-hidden bg-[#fdf8ea]">
+                  {[mushafPage, Math.min(604, mushafPage + 1)].map((pageNo, index) => (
+                    <div
+                      key={`${pageNo}-${index}`}
+                      className={`relative bg-[#fdf8ea] p-2 md:p-3 ${
+                        index === 1 ? "hidden md:block border-r border-amber-200" : ""
+                      }`}
+                    >
+                      <div className="absolute top-3 left-4 z-10 rounded-full bg-amber-100/90 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                        {pageNo}
+                      </div>
+                      <img
+                        src={mushafImageUrl(pageNo)}
+                        alt={`صفحة ${pageNo} من المصحف الشريف`}
+                        onLoad={() => {
+                          if (pageNo === mushafPage) setMushafLoaded(true);
+                        }}
+                        className={`w-full rounded-xl select-none transition-all duration-300 ${
+                          mushafLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.98]"
+                        }`}
+                        draggable={false}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-center gap-2 text-xs font-bold text-amber-100">
+                  <span>اسحب يمينًا أو يسارًا لتقليب الصفحة</span>
+                </div>
               </div>
             </div>
           </div>

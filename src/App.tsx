@@ -22,6 +22,7 @@ import AccountTypeSelectionPage from "./pages/AccountTypeSelectionPage";
 import TripTrackingPage from "./pages/TripTrackingPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import PrayerTimesPage from "./pages/PrayerTimesPage";
+import PilgrimGuidePage from "./pages/PilgrimGuidePage";
 import BookingDetailPage from "./pages/BookingDetailPage";
 import PassengerManifestPage from "./pages/PassengerManifestPage";
 import SupportPage from "./pages/SupportPage";
@@ -40,21 +41,22 @@ import FloatingSupportBtn from "./components/FloatingSupportBtn";
 import AnnouncementBanner from "./components/AnnouncementBanner";
 import AIAssistant from "./components/AIAssistant";
 import PWAInstallBanner from "./components/PWAInstallBanner";
+import PushNotificationPrompt from "./components/PushNotificationPrompt";
+import { LanguageProvider, LanguageSelector, useI18n } from "./lib/i18n";
 import { Menu, X, User, Headphones, Truck, ChevronRight, CheckCircle } from "lucide-react";
 
 const LOGO = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
 
 // ─── Hook: تطبيق ألوان الموقع الديناميكية كـ CSS variables ───────────────────
 function useColorTheme() {
-  const settings = useQuery(api.appSettings.getAll);
+  const settings = useQuery(api.appSettings.getMap);
 
   const colors = useMemo(() => {
     if (!settings) return null;
-    const get = (key: string) => settings.find((s: any) => s.key === key)?.value ?? null;
     return {
-      primary:   get("color_primary"),
-      secondary: get("color_secondary"),
-      accent:    get("color_accent"),
+      primary:   settings.color_primary ?? null,
+      secondary: settings.color_secondary ?? null,
+      accent:    settings.color_accent ?? null,
     };
   }, [settings]);
 
@@ -78,6 +80,7 @@ export type Page =
   | { name: "driver-dashboard" }
   | { name: "admin" }
   | { name: "quran" }
+  | { name: "pilgrim-guide" }
   | { name: "adhkar" }
   | { name: "umrah-map" }
   | { name: "prayer-times" }
@@ -135,6 +138,7 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
 }) {
   const user          = useQuery(api.auth.loggedInUser);
   const emailVerified = useQuery(api.otp.isEmailVerified);
+  const { dir } = useI18n();
   const [skipVerification, setSkipVerification] = useState(false);
 
   const attendanceRef = new URLSearchParams(window.location.search).get("ref");
@@ -145,8 +149,21 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
   }
 
   // ── مراقبة الرحلة وإرسال Push Notifications للمعتمرين ──
-  const { notify: pushNotify, isGranted: pushGranted } = usePushNotifications();
+  const {
+    notify: pushNotify,
+    isGranted: pushGranted,
+    showPrompt: showPushPrompt,
+    requestPermission: requestPushPermission,
+    promptForPermission,
+    dismissPrompt: dismissPushPrompt,
+  } = usePushNotifications();
   useTripPushWatcher(pushNotify, pushGranted, navigate);
+
+  useEffect(() => {
+    if ((user as any)?.accountType !== "pilgrim") return;
+    const timer = window.setTimeout(() => promptForPermission(), 2500);
+    return () => window.clearTimeout(timer);
+  }, [(user as any)?.accountType, promptForPermission]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -182,7 +199,7 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
   }
 
   // ── السائق: لوحة تحكم مخصصة بدون navbar/footer ──
-  if ((user as any)?.accountType === "driver") {
+  if ((user as any)?.accountType === "driver" && !["support", "privacy", "terms"].includes(page.name)) {
     return (
       <>
         <DriverDashboard navigate={navigate} />
@@ -192,7 +209,7 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
   }
 
   return (
-    <div className="min-h-screen flex flex-col" dir="rtl">
+    <div className="min-h-screen flex flex-col" dir={dir}>
       {page.name !== "quran" && <AnnouncementBanner />}
       {page.name !== "quran" && <Navbar navigate={navigate} page={page} menuOpen={menuOpen} setMenuOpen={setMenuOpen} goBack={goBack} canGoBack={canGoBack} />}
 
@@ -215,6 +232,7 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
         {page.name === "home"             && <HomePage navigate={navigate} />}
         {page.name === "package"          && <PackageDetailPage packageId={page.id} navigate={navigate} />}
         {page.name === "quran"            && <QuranPage navigate={navigate} />}
+        {page.name === "pilgrim-guide"    && <PilgrimGuidePage navigate={navigate} />}
         {page.name === "adhkar"           && <AdhkarPage navigate={navigate} />}
         {page.name === "umrah-map"        && <UmrahMapPage navigate={navigate} />}
         {page.name === "bookings"         && <BookingsPage navigate={navigate} />}
@@ -248,6 +266,15 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
         <AIAssistant navigate={navigate} />
       )}
       <PWAInstallBanner />
+      {showPushPrompt && (
+        <PushNotificationPrompt
+          onAllow={async () => {
+            const granted = await requestPushPermission();
+            if (granted) dismissPushPrompt();
+          }}
+          onDismiss={dismissPushPrompt}
+        />
+      )}
       <Toaster position="top-center" richColors />
     </div>
   );
@@ -311,8 +338,30 @@ function AttendanceLinkPage({
 }
 
 const ROOT_PAGES = new Set(["home", "office-dashboard", "driver-dashboard", "admin"]);
+const QUERY_PAGE_ROUTES: Partial<Record<string, Page>> = {
+  home: { name: "home" },
+  signin: { name: "signin" },
+  bookings: { name: "bookings" },
+  profile: { name: "profile" },
+  wallet: { name: "wallet" },
+  quran: { name: "quran" },
+  "pilgrim-guide": { name: "pilgrim-guide" },
+  adhkar: { name: "adhkar" },
+  "umrah-map": { name: "umrah-map" },
+  "prayer-times": { name: "prayer-times" },
+  "haramain-live": { name: "haramain-live" },
+  support: { name: "support" },
+  about: { name: "about" },
+  terms: { name: "terms" },
+  privacy: { name: "privacy" },
+  "trip-tracking": { name: "trip-tracking" },
+  "office-dashboard": { name: "office-dashboard" },
+  "driver-dashboard": { name: "driver-dashboard" },
+  admin: { name: "admin" },
+};
 
-export default function App() {
+function AppShell() {
+  const { dir } = useI18n();
   useColorTheme(); // ← تطبيق الألوان الديناميكية من لوحة الأدمن
 
   const [page, setPage] = useState<Page>(() => {
@@ -334,6 +383,9 @@ export default function App() {
     const params = new URLSearchParams(search);
     const trackToken = params.get("track");
     if (trackToken) return { name: "public-tracking", shareToken: trackToken };
+
+    const pageParam = params.get("page");
+    if (pageParam && QUERY_PAGE_ROUTES[pageParam]) return QUERY_PAGE_ROUTES[pageParam]!;
 
     return { name: "home" };
   });
@@ -398,18 +450,21 @@ export default function App() {
         <AuthenticatedApp page={page} navigate={navigate} goBack={goBack} canGoBack={canGoBack} menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       </Authenticated>
       <Unauthenticated>
-        <div className="min-h-screen flex flex-col" dir="rtl">
+        <div className="min-h-screen flex flex-col" dir={dir}>
           {page.name !== "quran" && <AnnouncementBanner />}
           {page.name !== "quran" && <Navbar navigate={navigate} page={page} menuOpen={menuOpen} setMenuOpen={setMenuOpen} goBack={goBack} canGoBack={canGoBack} />}
           <main className="flex-1">
             {page.name === "home"      && <HomePage navigate={navigate} />}
             {page.name === "package"   && <PackageDetailPage packageId={page.id} navigate={navigate} />}
             {page.name === "quran"     && <QuranPage navigate={navigate} />}
+            {page.name === "pilgrim-guide" && <PilgrimGuidePage navigate={navigate} />}
             {page.name === "adhkar"    && <AdhkarPage navigate={navigate} />}
             {page.name === "umrah-map" && <UmrahMapPage navigate={navigate} />}
             {page.name === "prayer-times"  && <PrayerTimesPage navigate={navigate} />}
             {page.name === "about"         && <AboutPage navigate={navigate} />}
             {page.name === "haramain-live" && <HaramainLivePage navigate={navigate} />}
+            {page.name === "support"       && <SupportPage navigate={navigate} />}
+            {page.name === "terms"         && <TermsPage navigate={navigate} />}
             {page.name === "privacy"       && <PrivacyPolicyPage navigate={navigate} />}
             {page.name === "driver-profile"  && <DriverPublicProfilePage driverId={page.driverId} navigate={navigate} />}
             {page.name === "driver-verify"   && <DriverVerifyPage driverCode={page.driverCode} navigate={navigate} />}
@@ -430,6 +485,14 @@ export default function App() {
 }
 
 // خريطة أسماء الصفحات بالعربية
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppShell />
+    </LanguageProvider>
+  );
+}
+
 const PAGE_LABELS: Partial<Record<Page["name"], string>> = {
   home: "الرئيسية",
   package: "تفاصيل البرنامج",
@@ -441,6 +504,7 @@ const PAGE_LABELS: Partial<Record<Page["name"], string>> = {
   "driver-dashboard": "لوحة السائق",
   admin: "لوحة الإدارة",
   quran: "المصحف الشريف",
+  "pilgrim-guide": "دليل المعتمر",
   adhkar: "الأذكار والأدعية",
   "umrah-map": "خريطة العمرة",
   "prayer-times": "مواقيت الصلاة",
@@ -468,22 +532,37 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
   canGoBack: boolean;
 }) {
   const user = useQuery(api.auth.loggedInUser);
-  const pageLabel = PAGE_LABELS[page.name] ?? "";
+  const { t } = useI18n();
+  const pageLabel = PAGE_LABELS[page.name] ?? t("nav.back");
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+    <header className={`smart-navbar sticky top-0 z-50 border-b backdrop-blur-xl transition-all duration-300 ${menuOpen ? "smart-navbar-open" : ""}`}>
+      {menuOpen && (
+        <div className="smart-menu-bus lg:hidden" aria-hidden="true">
+          <div className="smart-menu-bus__body">
+            <span />
+            <span />
+            <span />
+            <img src={LOGO} alt="" className="smart-menu-bus__logo" aria-hidden="true" />
+          </div>
+          <div className="smart-menu-bus__wheels">
+            <i />
+            <i />
+          </div>
+        </div>
+      )}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
 
         {/* ── زر الرجوع + الشعار ── */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {canGoBack ? (
             <button
               onClick={goBack}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-sm transition-all group"
-              title="رجوع"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/15 bg-white/10 text-white font-semibold text-sm shadow-lg shadow-emerald-950/10 transition-all hover:bg-white/15 group"
+              title={t("nav.back")}
             >
               <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              <span className="hidden sm:inline">{pageLabel || "رجوع"}</span>
+              <span className="hidden sm:inline">{pageLabel || t("nav.back")}</span>
             </button>
           ) : (
             <button onClick={() => navigate({ name: "home" })} className="flex-shrink-0">
@@ -499,32 +578,33 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
         </div>
 
         <nav className="hidden lg:flex items-center gap-0.5">
-          <NavBtn active={page.name === "home"}      onClick={() => navigate({ name: "home" })}>الرئيسية</NavBtn>
-          <NavBtn active={page.name === "about"}     onClick={() => navigate({ name: "about" })}>عن المنصة</NavBtn>
-          <NavBtn active={page.name === "quran"}     onClick={() => navigate({ name: "quran" })}>المصحف</NavBtn>
-          <NavBtn active={page.name === "adhkar"}    onClick={() => navigate({ name: "adhkar" })}>الأذكار</NavBtn>
-          <NavBtn active={page.name === "umrah-map"} onClick={() => navigate({ name: "umrah-map" })}>خريطة العمرة</NavBtn>
-          <NavBtn active={page.name === "prayer-times"} onClick={() => navigate({ name: "prayer-times" })}>مواقيت الصلاة</NavBtn>
-          <NavBtn active={page.name === "haramain-live"} onClick={() => navigate({ name: "haramain-live" })}>بث الحرمين</NavBtn>
+          <NavBtn active={page.name === "home"}      onClick={() => navigate({ name: "home" })}>{t("nav.home")}</NavBtn>
+          <NavBtn active={page.name === "about"}     onClick={() => navigate({ name: "about" })}>{t("nav.about")}</NavBtn>
+          <NavBtn active={page.name === "quran"}     onClick={() => navigate({ name: "quran" })}>{t("nav.quran")}</NavBtn>
+          <NavBtn active={page.name === "pilgrim-guide"} onClick={() => navigate({ name: "pilgrim-guide" })}>{t("nav.guide")}</NavBtn>
+          <NavBtn active={page.name === "adhkar"}    onClick={() => navigate({ name: "adhkar" })}>{t("nav.adhkar")}</NavBtn>
+          <NavBtn active={page.name === "umrah-map"} onClick={() => navigate({ name: "umrah-map" })}>{t("nav.umrahMap")}</NavBtn>
+          <NavBtn active={page.name === "prayer-times"} onClick={() => navigate({ name: "prayer-times" })}>{t("nav.prayerTimes")}</NavBtn>
+          <NavBtn active={page.name === "haramain-live"} onClick={() => navigate({ name: "haramain-live" })}>{t("nav.haramainLive")}</NavBtn>
           <Authenticated>
             {(user as any)?.accountType === "pilgrim" && (
               <>
-                <NavBtn active={page.name === "bookings"} onClick={() => navigate({ name: "bookings" })}>حجوزاتي</NavBtn>
+                <NavBtn active={page.name === "bookings"} onClick={() => navigate({ name: "bookings" })}>{t("nav.bookings")}</NavBtn>
                 <SupportNavBtn active={page.name === "support"} onClick={() => navigate({ name: "support" })} />
               </>
             )}
             {(user?.accountType === "office" || (user as any)?.isOfficeOwner) && (
-              <NavBtn active={page.name === "office-dashboard"} onClick={() => navigate({ name: "office-dashboard" })}>لوحة المكتب</NavBtn>
+              <NavBtn active={page.name === "office-dashboard"} onClick={() => navigate({ name: "office-dashboard" })}>{t("nav.office")}</NavBtn>
             )}
             {(user as any)?.accountType === "driver" && (
               <NavBtn active={page.name === "driver-dashboard"} onClick={() => navigate({ name: "driver-dashboard" })}>
-                <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" />لوحة السائق</span>
+                <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" />{t("nav.driver")}</span>
               </NavBtn>
             )}
             {(user as any)?.isAdmin && (
               <NavBtn active={page.name === "admin"} onClick={() => navigate({ name: "admin" })}>
                 <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />الإدارة
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{t("nav.admin")}
                 </span>
               </NavBtn>
             )}
@@ -532,69 +612,80 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
         </nav>
 
         <div className="flex items-center gap-2">
+          <div className="hidden md:block">
+            <LanguageSelector />
+          </div>
           <Authenticated>
             <NotificationBell navigate={navigate} />
             <button
               onClick={() => navigate({ name: "profile" })}
-              className={`hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                page.name === "profile" ? "bg-emerald-50 text-emerald-700" : "text-gray-600 hover:text-emerald-700 hover:bg-emerald-50"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold transition-all ${
+                page.name === "profile" ? "border-white/30 bg-white text-emerald-900 shadow-sm" : "border-white/10 bg-white/5 text-white/75 hover:text-white hover:bg-white/10"
               }`}
             >
-              <User className="w-4 h-4" /> ملفي
+              <User className="w-4 h-4" /> {t("nav.profile")}
             </button>
             <SignOutButton />
           </Authenticated>
           <Unauthenticated>
             <button
               onClick={() => navigate({ name: "signin" })}
-              className="hidden md:inline-flex px-5 py-2 rounded-xl bg-gradient-to-l from-emerald-700 to-emerald-600 text-white font-bold text-sm hover:from-emerald-800 hover:to-emerald-700 transition-all shadow-md"
+              className="hidden md:inline-flex px-5 py-2 rounded-xl border border-amber-200/40 bg-amber-300/90 text-emerald-950 font-bold text-sm shadow-lg shadow-amber-950/10 transition-all hover:bg-amber-200"
             >
-              تسجيل الدخول
+              {t("nav.signin")}
             </button>
           </Unauthenticated>
-          <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100" onClick={() => setMenuOpen(!menuOpen)}>
+          <button
+            className="lg:hidden p-2.5 rounded-2xl border border-white/15 bg-white/10 text-white shadow-lg shadow-emerald-950/15 transition-all hover:bg-white/15"
+            onClick={() => setMenuOpen(!menuOpen)}
+              aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
+          >
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
       {menuOpen && (
-        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
+        <div className="smart-mobile-menu lg:hidden border-t border-white/10 bg-emerald-950/75 px-4 py-3 space-y-1 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl">
+          <div className="pb-2">
+            <LanguageSelector compact />
+          </div>
           {[
-            { label: "الرئيسية",           p: { name: "home" } as Page },
-            { label: "عن المنصة",          p: { name: "about" } as Page },
-            { label: "المصحف",             p: { name: "quran" } as Page },
-            { label: "الأذكار والأدعية",   p: { name: "adhkar" } as Page },
-            { label: "خريطة العمرة",       p: { name: "umrah-map" } as Page },
-            { label: "مواقيت الصلاة",      p: { name: "prayer-times" } as Page },
-            { label: "بث الحرمين المباشر", p: { name: "haramain-live" } as Page },
+            { label: t("nav.home"),         p: { name: "home" } as Page },
+            { label: t("nav.about"),        p: { name: "about" } as Page },
+            { label: t("nav.quran"),        p: { name: "quran" } as Page },
+            { label: t("nav.guide"),        p: { name: "pilgrim-guide" } as Page },
+            { label: t("nav.adhkar"),       p: { name: "adhkar" } as Page },
+            { label: t("nav.umrahMap"),     p: { name: "umrah-map" } as Page },
+            { label: t("nav.prayerTimes"),  p: { name: "prayer-times" } as Page },
+            { label: t("nav.haramainLive"), p: { name: "haramain-live" } as Page },
           ].map((item) => (
             <MobileNavBtn key={item.label} onClick={() => navigate(item.p)}>{item.label}</MobileNavBtn>
           ))}
           <Authenticated>
             {(user as any)?.accountType === "pilgrim" && (
               <>
-                <MobileNavBtn onClick={() => navigate({ name: "bookings" })}>حجوزاتي</MobileNavBtn>
-                <MobileNavBtn onClick={() => navigate({ name: "support" })}>الدعم والمساعدة</MobileNavBtn>
+                <MobileNavBtn onClick={() => navigate({ name: "bookings" })}>{t("nav.bookings")}</MobileNavBtn>
+                <MobileNavBtn onClick={() => navigate({ name: "support" })}>{t("nav.support")}</MobileNavBtn>
               </>
             )}
-            <MobileNavBtn onClick={() => navigate({ name: "profile" })}>ملفي الشخصي</MobileNavBtn>
+            <MobileNavBtn onClick={() => navigate({ name: "profile" })}>{t("nav.profile")}</MobileNavBtn>
             {(user?.accountType === "office" || (user as any)?.isOfficeOwner) && (
-              <MobileNavBtn onClick={() => navigate({ name: "office-dashboard" })}>لوحة المكتب</MobileNavBtn>
+              <MobileNavBtn onClick={() => navigate({ name: "office-dashboard" })}>{t("nav.office")}</MobileNavBtn>
             )}
             {(user as any)?.accountType === "driver" && (
-              <MobileNavBtn onClick={() => navigate({ name: "driver-dashboard" })}>🚌 لوحة السائق</MobileNavBtn>
+              <MobileNavBtn onClick={() => navigate({ name: "driver-dashboard" })}>🚌 {t("nav.driver")}</MobileNavBtn>
             )}
             {(user as any)?.isAdmin && (
-              <MobileNavBtn onClick={() => navigate({ name: "admin" })}>لوحة الإدارة</MobileNavBtn>
+              <MobileNavBtn onClick={() => navigate({ name: "admin" })}>{t("nav.admin")}</MobileNavBtn>
             )}
           </Authenticated>
           <Unauthenticated>
             <button
               onClick={() => navigate({ name: "signin" })}
-              className="w-full mt-2 py-3 rounded-xl bg-gradient-to-l from-emerald-700 to-emerald-600 text-white font-bold text-sm"
+              className="smart-mobile-menu-item w-full mt-2 py-3 rounded-xl border border-amber-200/40 bg-amber-300/90 text-emerald-950 font-bold text-sm shadow-lg shadow-amber-950/10"
             >
-              تسجيل الدخول
+              {t("nav.signin")}
             </button>
           </Unauthenticated>
         </div>
@@ -607,8 +698,8 @@ function NavBtn({ children, onClick, active }: { children: React.ReactNode; onCl
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-        active ? "bg-emerald-50 text-emerald-700" : "text-gray-600 hover:text-emerald-700 hover:bg-emerald-50"
+      className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+        active ? "bg-white text-emerald-900 shadow-sm" : "text-white/72 hover:text-white hover:bg-white/10"
       }`}
     >
       {children}
@@ -618,7 +709,7 @@ function NavBtn({ children, onClick, active }: { children: React.ReactNode; onCl
 
 function MobileNavBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="w-full text-right px-4 py-3 rounded-xl text-gray-700 font-medium hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+    <button onClick={onClick} className="smart-mobile-menu-item w-full text-start px-4 py-3 rounded-xl text-white/85 font-medium transition-colors hover:bg-white/10 hover:text-white">
       {children}
     </button>
   );
@@ -627,16 +718,17 @@ function MobileNavBtn({ children, onClick }: { children: React.ReactNode; onClic
 function SupportNavBtn({ active, onClick }: { active: boolean; onClick: () => void }) {
   const chat = useQuery(api.support.getMyChat);
   const unread = chat?.unreadByUser ?? 0;
+  const { t } = useI18n();
 
   return (
     <button
       onClick={onClick}
-      className={`relative px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
-        active ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:text-blue-700 hover:bg-blue-50"
+      className={`relative px-3 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
+        active ? "bg-white text-emerald-900 shadow-sm" : "text-white/72 hover:text-white hover:bg-white/10"
       }`}
-    >
+      >
       <Headphones className="w-4 h-4" />
-      الدعم
+      {t("nav.support")}
       {unread > 0 && (
         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
           {unread > 9 ? "9+" : unread}
@@ -734,7 +826,7 @@ function SignInPage({ navigate }: { navigate: (p: Page) => void }) {
         </div>
 
         {/* خلفية الديسكتوب */}
-        <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-slate-50 to-gray-100" />
+        <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950" />
 
         {/* شريط علوي للجوال */}
         <div className="lg:hidden relative z-10 flex items-center justify-between px-5 pt-6">
@@ -764,7 +856,7 @@ function SignInPage({ navigate }: { navigate: (p: Page) => void }) {
             <div className="hidden lg:block mb-7">
               <button
                 onClick={() => navigate({ name: "home" })}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-emerald-600 transition-colors mb-5"
+                className="flex items-center gap-1.5 text-xs text-emerald-100/60 hover:text-white transition-colors mb-5"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -776,12 +868,12 @@ function SignInPage({ navigate }: { navigate: (p: Page) => void }) {
             </div>
 
             {/* نموذج تسجيل الدخول */}
-            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/20 lg:border-gray-100 lg:shadow-lg">
+            <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-transparent shadow-2xl shadow-emerald-950/30">
               <SignInForm />
-              <div className="px-6 pb-5 pt-3 border-t border-gray-50 space-y-2">
+              <div className="space-y-2 border-t border-white/10 bg-white/8 px-6 pb-5 pt-3 backdrop-blur-xl">
                 <button
                   onClick={() => navigate({ name: "forgot-password" })}
-                  className="w-full flex items-center justify-center gap-2 text-sm text-emerald-600 hover:text-emerald-800 font-semibold transition-colors py-1.5 rounded-lg hover:bg-emerald-50"
+                  className="w-full flex items-center justify-center gap-2 text-sm text-emerald-50/80 hover:text-white font-semibold transition-colors py-1.5 rounded-lg hover:bg-white/10"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -790,7 +882,7 @@ function SignInPage({ navigate }: { navigate: (p: Page) => void }) {
                 </button>
                 <button
                   onClick={() => navigate({ name: "privacy" })}
-                  className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
+                  className="w-full flex items-center justify-center gap-1.5 text-xs text-emerald-50/45 hover:text-emerald-50/75 transition-colors py-1"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -823,6 +915,7 @@ function SignInPage({ navigate }: { navigate: (p: Page) => void }) {
 
 function Footer({ navigate }: { navigate: (p: Page) => void }) {
   const settings = useQuery(api.appSettings.getMap);
+  const { t } = useI18n();
 
   const phone     = settings?.contact_phone   ?? "920000000";
   const email     = settings?.contact_email   ?? "info@almasaraldaki.sa";
@@ -893,27 +986,28 @@ function Footer({ navigate }: { navigate: (p: Page) => void }) {
             )}
           </div>
           <div>
-            <h4 className="font-bold text-amber-400 mb-4">الحجز</h4>
+            <h4 className="font-bold text-amber-400 mb-4">{t("footer.booking")}</h4>
             <ul className="space-y-2 text-emerald-300 text-sm">
-              <li><button onClick={() => navigate({ name: "home" })}             className="hover:text-white transition-colors">البرامج المتاحة</button></li>
-              <li><button onClick={() => navigate({ name: "about" })}            className="hover:text-white transition-colors">عن المنصة</button></li>
-              <li><button onClick={() => navigate({ name: "bookings" })}         className="hover:text-white transition-colors">حجوزاتي</button></li>
-              <li><button onClick={() => navigate({ name: "profile" })}          className="hover:text-white transition-colors">ملفي الشخصي</button></li>
-              <li><button onClick={() => navigate({ name: "office-dashboard" })} className="hover:text-white transition-colors">لوحة المكتب</button></li>
+              <li><button onClick={() => navigate({ name: "home" })}             className="hover:text-white transition-colors">{t("footer.availablePrograms")}</button></li>
+              <li><button onClick={() => navigate({ name: "about" })}            className="hover:text-white transition-colors">{t("nav.about")}</button></li>
+              <li><button onClick={() => navigate({ name: "bookings" })}         className="hover:text-white transition-colors">{t("nav.bookings")}</button></li>
+              <li><button onClick={() => navigate({ name: "profile" })}          className="hover:text-white transition-colors">{t("nav.profile")}</button></li>
+              <li><button onClick={() => navigate({ name: "office-dashboard" })} className="hover:text-white transition-colors">{t("nav.office")}</button></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-amber-400 mb-4">الخدمات الدينية</h4>
+            <h4 className="font-bold text-amber-400 mb-4">{t("footer.services")}</h4>
             <ul className="space-y-2 text-emerald-300 text-sm">
-              <li><button onClick={() => navigate({ name: "quran" })}        className="hover:text-white transition-colors">المصحف الشريف</button></li>
-              <li><button onClick={() => navigate({ name: "adhkar" })}       className="hover:text-white transition-colors">الأذكار والأدعية</button></li>
-              <li><button onClick={() => navigate({ name: "umrah-map" })}    className="hover:text-white transition-colors">خريطة العمرة</button></li>
-              <li><button onClick={() => navigate({ name: "prayer-times" })} className="hover:text-white transition-colors">مواقيت الصلاة</button></li>
-              <li><button onClick={() => navigate({ name: "haramain-live" })} className="hover:text-white transition-colors">بث الحرمين المباشر</button></li>
+              <li><button onClick={() => navigate({ name: "quran" })}        className="hover:text-white transition-colors">{t("nav.quran")}</button></li>
+              <li><button onClick={() => navigate({ name: "pilgrim-guide" })} className="hover:text-white transition-colors">{t("nav.guide")}</button></li>
+              <li><button onClick={() => navigate({ name: "adhkar" })}       className="hover:text-white transition-colors">{t("nav.adhkar")}</button></li>
+              <li><button onClick={() => navigate({ name: "umrah-map" })}    className="hover:text-white transition-colors">{t("nav.umrahMap")}</button></li>
+              <li><button onClick={() => navigate({ name: "prayer-times" })} className="hover:text-white transition-colors">{t("nav.prayerTimes")}</button></li>
+              <li><button onClick={() => navigate({ name: "haramain-live" })} className="hover:text-white transition-colors">{t("nav.haramainLive")}</button></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-amber-400 mb-4">تواصل معنا</h4>
+            <h4 className="font-bold text-amber-400 mb-4">{t("footer.contact")}</h4>
             <ul className="space-y-2 text-emerald-300 text-sm">
               <li className="flex items-center gap-2">📞 {phone}</li>
               <li className="flex items-center gap-2">📧 {email}</li>
@@ -922,20 +1016,20 @@ function Footer({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         </div>
         <div className="border-t border-emerald-900 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-500 text-sm">
-          <span>© 2025 المسار الذكي لحجز العمرة. جميع الحقوق محفوظة.</span>
+          <span>{t("footer.rights")}</span>
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate({ name: "terms" })}
               className="hover:text-emerald-300 transition-colors"
             >
-              الشروط والأحكام
+              {t("footer.terms")}
             </button>
             <span className="text-emerald-800">|</span>
             <button
               onClick={() => navigate({ name: "privacy" })}
               className="hover:text-emerald-300 transition-colors flex items-center gap-1"
             >
-              🔒 سياسة الخصوصية
+              🔒 {t("footer.privacy")}
             </button>
           </div>
         </div>

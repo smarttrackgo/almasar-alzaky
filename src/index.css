@@ -18,6 +18,24 @@ body {
   direction: rtl;
 }
 
+html[dir="ltr"] body {
+  direction: ltr;
+}
+
+button, a {
+  min-width: 0;
+}
+
+button {
+  overflow-wrap: anywhere;
+}
+
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
 /* ── Auth ── */
 .auth-input-field {
   @apply w-full px-4 py-3 rounded-xl bg-white border-2 border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all;
@@ -51,6 +69,193 @@ body {
 @keyframes busping {
   0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(5,150,105,0.5); }
   50% { transform: scale(1.1); box-shadow: 0 6px 20px rgba(5,150,105,0.7); }
+}
+
+.smart-bus-marker-wrap {
+  background: transparent !important;
+  border: 0 !important;
+}
+.smart-bus-marker {
+  position: relative;
+  width: 78px;
+  height: 86px;
+  transform: translateZ(0);
+  pointer-events: auto;
+}
+.smart-bus-marker__pulse {
+  position: absolute;
+  left: 14px;
+  top: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  background: rgba(5, 150, 105, .2);
+  border: 2px solid rgba(5, 150, 105, .28);
+  animation: smartBusPulse 1.8s ease-out infinite;
+}
+.smart-bus-marker.is-offline .smart-bus-marker__pulse {
+  background: rgba(100, 116, 139, .16);
+  border-color: rgba(100, 116, 139, .22);
+  animation: none;
+}
+.smart-bus-marker__ground {
+  position: absolute;
+  left: 17px;
+  top: 53px;
+  width: 44px;
+  height: 16px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, .34), rgba(15, 23, 42, 0) 70%);
+  filter: blur(1px);
+}
+.smart-bus-marker__body {
+  position: absolute;
+  left: 16px;
+  top: 11px;
+  width: 46px;
+  height: 48px;
+  border-radius: 14px 14px 10px 10px;
+  background: linear-gradient(145deg, #10b981 0%, #047857 54%, #065f46 100%);
+  border: 3px solid #fff;
+  box-shadow:
+    inset -8px -10px 16px rgba(6, 78, 59, .4),
+    inset 7px 6px 12px rgba(255, 255, 255, .2),
+    0 13px 23px rgba(6, 78, 59, .35);
+  transform: rotate(var(--bus-heading)) rotateX(11deg);
+  transform-origin: 50% 75%;
+  transition: transform .35s ease, filter .25s ease;
+}
+.smart-bus-marker.is-offline .smart-bus-marker__body {
+  background: linear-gradient(145deg, #94a3b8 0%, #64748b 55%, #475569 100%);
+  box-shadow:
+    inset -8px -10px 16px rgba(30, 41, 59, .35),
+    inset 7px 6px 12px rgba(255, 255, 255, .18),
+    0 13px 23px rgba(30, 41, 59, .25);
+}
+.smart-bus-marker__roof {
+  position: absolute;
+  left: 9px;
+  top: 4px;
+  width: 28px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .28);
+}
+.smart-bus-marker__windows {
+  position: absolute;
+  left: 7px;
+  top: 13px;
+  right: 7px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+}
+.smart-bus-marker__windows span {
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(160deg, #ecfeff, #67e8f9);
+  box-shadow: inset 0 -3px 5px rgba(14, 116, 144, .22);
+}
+.smart-bus-marker__front {
+  position: absolute;
+  left: 17px;
+  top: -8px;
+  width: 12px;
+  height: 9px;
+  border-radius: 8px 8px 2px 2px;
+  background: #fef3c7;
+  box-shadow: 0 0 12px rgba(251, 191, 36, .72);
+}
+.smart-bus-marker__stripe {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 14px;
+  height: 5px;
+  border-radius: 999px;
+  background: #fbbf24;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .42);
+}
+.smart-bus-marker__lights {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 7px;
+  display: flex;
+  justify-content: space-between;
+}
+.smart-bus-marker__lights span {
+  width: 7px;
+  height: 5px;
+  border-radius: 999px;
+  background: #fde68a;
+  box-shadow: 0 0 9px rgba(253, 230, 138, .76);
+}
+.smart-bus-marker__wheels {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: -8px;
+  display: flex;
+  justify-content: space-between;
+}
+.smart-bus-marker__wheels span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #111827;
+  border: 3px solid #e5e7eb;
+  box-shadow: inset 0 0 0 2px #475569;
+}
+.smart-bus-marker__pin {
+  position: absolute;
+  left: 35px;
+  top: 60px;
+  width: 8px;
+  height: 8px;
+  background: #fbbf24;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, .2);
+}
+.smart-bus-marker__label {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  min-width: 72px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(6, 78, 59, .94);
+  color: white;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, .22);
+  border: 1px solid rgba(255, 255, 255, .22);
+  direction: rtl;
+}
+.smart-bus-marker.is-offline .smart-bus-marker__label {
+  background: rgba(51, 65, 85, .94);
+}
+.smart-bus-marker__label strong,
+.smart-bus-marker__label small {
+  display: block;
+  line-height: 1.1;
+}
+.smart-bus-marker__label strong {
+  font-size: 10px;
+  font-weight: 900;
+}
+.smart-bus-marker__label small {
+  margin-top: 2px;
+  font-size: 8px;
+  color: #d1fae5;
+  font-weight: 800;
+}
+
+@keyframes smartBusPulse {
+  0% { transform: scale(.62); opacity: .65; }
+  70% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
 }
 
 @keyframes fadeUp {
@@ -170,4 +375,188 @@ body {
 .logo-light {
   mix-blend-mode: multiply;
   filter: brightness(0.95) contrast(1.05);
+}
+
+/* Navbar glass motion */
+.smart-navbar {
+  position: sticky;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(6, 78, 59, .58), rgba(4, 120, 87, .42) 48%, rgba(15, 23, 42, .34));
+  border-color: rgba(255, 255, 255, .13);
+  box-shadow: 0 14px 34px rgba(6, 78, 59, .16);
+}
+.smart-navbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, .06), transparent 32%, rgba(251, 191, 36, .10) 68%, transparent);
+}
+.smart-navbar-open {
+  background:
+    linear-gradient(135deg, rgba(6, 78, 59, .82), rgba(4, 120, 87, .66) 50%, rgba(15, 23, 42, .62));
+  box-shadow: 0 18px 42px rgba(6, 78, 59, .24);
+}
+.smart-navbar img {
+  mix-blend-mode: screen !important;
+  filter: brightness(1.12) saturate(1.22) drop-shadow(0 8px 16px rgba(0, 0, 0, .18)) !important;
+}
+.smart-mobile-menu {
+  animation: smartMenuDrop .42s cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: top center;
+}
+.smart-mobile-menu-item {
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: smartMenuItem .48s ease both;
+}
+.smart-mobile-menu-item:nth-child(1) { animation-delay: .05s; }
+.smart-mobile-menu-item:nth-child(2) { animation-delay: .08s; }
+.smart-mobile-menu-item:nth-child(3) { animation-delay: .11s; }
+.smart-mobile-menu-item:nth-child(4) { animation-delay: .14s; }
+.smart-mobile-menu-item:nth-child(5) { animation-delay: .17s; }
+.smart-mobile-menu-item:nth-child(6) { animation-delay: .20s; }
+.smart-mobile-menu-item:nth-child(7) { animation-delay: .23s; }
+.smart-mobile-menu-item:nth-child(8) { animation-delay: .26s; }
+.smart-mobile-menu-item:nth-child(9) { animation-delay: .29s; }
+.smart-mobile-menu-item:nth-child(10) { animation-delay: .32s; }
+.smart-menu-bus {
+  position: absolute;
+  left: 52px;
+  top: 12px;
+  z-index: 60;
+  width: 64px;
+  height: 40px;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  animation: smartMenuBusDrive .92s cubic-bezier(.16, 1, .3, 1) both;
+}
+.smart-menu-bus::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 5px;
+  bottom: 1px;
+  height: 10px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, .34), rgba(15, 23, 42, 0) 72%);
+  filter: blur(1px);
+}
+.smart-menu-bus__body {
+  position: absolute;
+  inset: 2px 2px 10px;
+  border: 2px solid rgba(255, 255, 255, .9);
+  border-radius: 11px 16px 8px 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .20), transparent 42%),
+    linear-gradient(90deg, #10b981 0%, #059669 54%, #047857 74%, #064e3b 100%);
+  box-shadow:
+    inset -10px -9px 14px rgba(6, 78, 59, .46),
+    inset 7px 6px 10px rgba(255, 255, 255, .20),
+    0 11px 18px rgba(0, 0, 0, .24);
+  transform: rotateY(-18deg) rotateX(10deg);
+}
+.smart-menu-bus__body::before {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 7px 9px 4px 4px;
+  background: linear-gradient(145deg, #ecfeff, #7dd3fc);
+  box-shadow:
+    inset -2px -3px 4px rgba(14, 116, 144, .22),
+    0 0 0 1px rgba(255, 255, 255, .45);
+}
+.smart-menu-bus__body span {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 9px;
+  margin: 6px 2px 0;
+  border-radius: 4px;
+  background: linear-gradient(160deg, #ecfeff, #67e8f9);
+  box-shadow:
+    inset 0 -2px 4px rgba(14, 116, 144, .2),
+    0 0 0 1px rgba(255, 255, 255, .3);
+}
+.smart-menu-bus__body span:nth-child(1) {
+  margin-right: 7px;
+}
+.smart-menu-bus__body span:nth-child(3) {
+  height: 15px;
+  border-radius: 4px 4px 2px 2px;
+  transform: translateY(3px);
+}
+.smart-menu-bus__logo {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 18px;
+  height: 12px;
+  object-fit: contain;
+  padding: 1px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .86);
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, .25),
+    inset 0 0 0 1px rgba(255, 255, 255, .7);
+  mix-blend-mode: normal !important;
+  filter: none !important;
+}
+.smart-menu-bus__body::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 5px;
+  bottom: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #fbbf24;
+  box-shadow:
+    47px -1px 0 -1px #fde68a,
+    47px -1px 9px -1px rgba(253, 230, 138, .78),
+    0 1px 0 rgba(255, 255, 255, .42);
+}
+.smart-menu-bus__wheels {
+  position: absolute;
+  left: 10px;
+  right: 11px;
+  bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+}
+.smart-menu-bus__wheels i {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 3px solid #e5e7eb;
+  border-radius: 999px;
+  background: #111827;
+  box-shadow:
+    inset 0 0 0 2px #475569,
+    0 2px 4px rgba(15, 23, 42, .28);
+  animation: smartMenuBusWheel .34s linear infinite;
+}
+
+@keyframes smartMenuDrop {
+  from { opacity: 0; transform: translateY(-10px) scaleY(.98); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+@keyframes smartMenuItem {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes smartMenuBusDrive {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(.78) rotateY(-24deg); }
+  14% { opacity: 1; }
+  72% { opacity: 1; transform: translate3d(calc(100vw - 166px), 0, 0) scale(1) rotateY(10deg); }
+  100% { opacity: 0; transform: translate3d(calc(100vw - 166px), 0, 0) scale(.72) rotateY(18deg); }
+}
+@keyframes smartMenuBusWheel {
+  to { transform: rotate(360deg); }
 }

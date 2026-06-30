@@ -58,6 +58,9 @@ export const create = mutation({
     method:    v.string(),
     cardLast4: v.optional(v.string()),
     cardBrand: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    checkoutUrl: v.optional(v.string()),
+    currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -76,6 +79,9 @@ export const create = mutation({
       transactionId,
       cardLast4: args.cardLast4,
       cardBrand: args.cardBrand,
+      provider: args.provider,
+      checkoutUrl: args.checkoutUrl,
+      currency: args.currency,
     });
     return { paymentId, transactionId };
   },

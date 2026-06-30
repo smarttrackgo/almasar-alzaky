@@ -27,11 +27,20 @@ const SPIRITUAL_SERVICES: Array<{
   icon: React.ElementType;
   title: string;
   desc: string;
-  pageName: "quran" | "adhkar" | "umrah-map";
+  pageName: "pilgrim-guide" | "quran" | "adhkar" | "umrah-map";
   gradient: string;
   badge: string;
   iconBg: string;
 }> = [
+  {
+    icon: Compass,
+    title: "دليل المعتمر",
+    desc: "مناسك العمرة، الأذكار، مواقيت الصلاة، القبلة، بث الحرمين، وسبحة محفوظة في مكان واحد",
+    pageName: "pilgrim-guide",
+    gradient: "from-stone-800 to-emerald-950",
+    badge: "مركز الرحلة",
+    iconBg: "bg-amber-600/30",
+  },
   {
     icon: BookOpen,
     title: "المصحف الشريف",

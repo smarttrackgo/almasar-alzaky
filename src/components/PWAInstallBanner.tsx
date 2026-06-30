@@ -72,7 +72,7 @@ export default function PWAInstallBanner() {
       {/* ── البانر الرئيسي ── */}
       <div
         dir="rtl"
-        className="fixed bottom-0 inset-x-0 z-[100] px-4 pb-4 pointer-events-none"
+        className="fixed bottom-0 inset-x-0 z-[100] px-4 pb-4 safe-bottom pointer-events-none"
       >
         <div className="max-w-lg mx-auto pointer-events-auto">
           <div className="bg-gradient-to-l from-emerald-900 to-emerald-800 rounded-2xl shadow-2xl border border-emerald-700/50 overflow-hidden">

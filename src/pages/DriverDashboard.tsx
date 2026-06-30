@@ -11,7 +11,7 @@ import {
   RefreshCw, Wifi, WifiOff, AlertCircle,
   FileText, Camera, CreditCard, Shield, Globe,
   Package, Calendar, QrCode, Printer, X, LogOut, Truck,
-  ScanLine, UserCheck,
+  ScanLine, UserCheck, LifeBuoy, AlertTriangle, LockKeyhole,
 } from "lucide-react";
 import QRCode from "qrcode";
 import AttendanceScanner from "../components/AttendanceScanner";
@@ -141,7 +141,7 @@ export default function DriverDashboard({ navigate }: { navigate: (p: Page) => v
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 pb-24">
         {tab === "home"    && <HomeTab driver={driver} onOpenAttendance={setAttendanceTrip} />}
         {tab === "trips"   && <TripsTab trips={trips ?? []} onOpenAttendance={setAttendanceTrip} />}
-        {tab === "profile" && <ProfileTab driver={driver} />}
+        {tab === "profile" && <ProfileTab driver={driver} navigate={navigate} />}
         {tab === "bus"     && <BusTab driver={driver} />}
       </main>
 
@@ -756,10 +756,12 @@ function TripsTab({ trips, onOpenAttendance }: { trips: any[]; onOpenAttendance:
 // ══════════════════════════════════════════════════════
 // تبويب الملف الشخصي
 // ══════════════════════════════════════════════════════
-function ProfileTab({ driver }: { driver: any }) {
+function ProfileTab({ driver, navigate }: { driver: any; navigate: (p: Page) => void }) {
+  const { signOut } = useAuthActions();
   const updateProfile = useMutation(api.drivers.updateProfile);
   const genUploadUrl  = useMutation(api.drivers.generateProfileImageUploadUrl);
   const saveImage     = useMutation(api.drivers.saveProfileImage);
+  const deleteMyAccount = useMutation(api.auth.deleteMyAccount);
   const offices       = useQuery(api.drivers.listOffices);
 
   const [editing, setEditing]   = useState(false);
@@ -777,6 +779,8 @@ function ProfileTab({ driver }: { driver: any }) {
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
@@ -814,6 +818,27 @@ function ProfileTab({ driver }: { driver: any }) {
       toast.error("فشل رفع الصورة");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation.trim() !== "حذف حسابي") {
+      toast.error("اكتب عبارة التأكيد: حذف حسابي");
+      return;
+    }
+    if (!confirm("سيتم حذف حساب السائق وجميع بياناته نهائياً. لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟")) return;
+
+    setDeletingAccount(true);
+    try {
+      await deleteMyAccount({ confirmation: deleteConfirmation });
+      toast.success("تم حذف الحساب نهائياً");
+      await signOut().catch(() => {});
+      navigate({ name: "home" });
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر حذف الحساب");
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -1061,6 +1086,57 @@ function ProfileTab({ driver }: { driver: any }) {
       </div>
 
       {/* رفع الملفات */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        <h3 className="font-black text-gray-800 flex items-center gap-2">
+          <Shield className="w-4 h-4 text-emerald-600" />
+          التطبيق والحساب
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button onClick={() => navigate({ name: "support" })} className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-right hover:bg-emerald-100 transition-colors">
+            <LifeBuoy className="w-5 h-5 text-emerald-700 mb-2" />
+            <div className="text-sm font-bold text-gray-900">اتصل بنا</div>
+            <div className="text-[11px] text-gray-500 mt-1">الدعم والمساعدة</div>
+          </button>
+          <button onClick={() => navigate({ name: "privacy" })} className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-right hover:bg-blue-100 transition-colors">
+            <LockKeyhole className="w-5 h-5 text-blue-700 mb-2" />
+            <div className="text-sm font-bold text-gray-900">الخصوصية</div>
+            <div className="text-[11px] text-gray-500 mt-1">البيانات والتتبع</div>
+          </button>
+          <button onClick={() => navigate({ name: "terms" })} className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-right hover:bg-amber-100 transition-colors">
+            <FileText className="w-5 h-5 text-amber-700 mb-2" />
+            <div className="text-sm font-bold text-gray-900">الشروط</div>
+            <div className="text-[11px] text-gray-500 mt-1">قواعد الاستخدام</div>
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="font-black text-red-800">حذف حسابي</div>
+              <p className="text-xs text-red-700/80 leading-6 mt-1">
+                سيتم حذف حساب السائق والبيانات المرتبطة به نهائياً، بما يشمل الرحلات، المستندات، ومحفوظات الدخول.
+              </p>
+              <div className="mt-3 space-y-2">
+                <input
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder="اكتب: حذف حسابي"
+                  className="w-full rounded-xl border-2 border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-900 outline-none focus:border-red-500"
+                />
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount || deleteConfirmation.trim() !== "حذف حسابي"}
+                  className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deletingAccount ? "جارٍ حذف الحساب..." : "حذف حسابي نهائياً"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <FileUploadSection driver={driver} />
     </div>
   );

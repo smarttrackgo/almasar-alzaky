@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
 import { toast } from "sonner";
@@ -7,6 +8,7 @@ import {
   User, Phone, CreditCard, MapPin, Wallet,
   Edit3, Save, X, Plus, Trash2, Users,
   ChevronLeft, CalendarDays, Building2, TrendingUp,
+  ShieldCheck, LifeBuoy, FileText, AlertTriangle, LockKeyhole,
 } from "lucide-react";
 
 const STATUS: Record<string, { label: string; cls: string; dot: string }> = {
@@ -18,9 +20,10 @@ const STATUS: Record<string, { label: string; cls: string; dot: string }> = {
   cancelled: { label: "ملغي",             cls: "bg-red-100 text-red-600",        dot: "bg-red-400" },
 };
 
-type ProfileTab = "info" | "bookings" | "companions" | "wallet";
+type ProfileTab = "info" | "bookings" | "companions" | "wallet" | "security";
 
 export default function ProfilePage({ navigate }: { navigate: (p: Page) => void }) {
+  const { signOut } = useAuthActions();
   const user       = useQuery(api.auth.loggedInUser);
   const bookings   = useQuery(api.bookings.myBookings);
   const companions = useQuery(api.companions.getMyCompanions);
@@ -28,12 +31,15 @@ export default function ProfilePage({ navigate }: { navigate: (p: Page) => void 
   const updateProfile   = useMutation(api.bookings.updateProfile);
   const addCompanion    = useMutation(api.companions.add);
   const removeCompanion = useMutation(api.companions.remove);
+  const deleteMyAccount = useMutation(api.auth.deleteMyAccount);
 
   const [tab, setTab]         = useState<ProfileTab>("info");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", idNumber: "", passportNumber: "", city: "" });
   const [showAddComp, setShowAddComp] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [compForm, setCompForm] = useState({ name: "", idNumber: "", relation: "زوج/زوجة", phone: "", passportNumber: "" });
 
   if (user === undefined) {
@@ -100,11 +106,33 @@ export default function ProfilePage({ navigate }: { navigate: (p: Page) => void 
     } catch { toast.error("حدث خطأ"); }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation.trim() !== "حذف حسابي") {
+      toast.error("اكتب عبارة التأكيد: حذف حسابي");
+      return;
+    }
+    if (!confirm("سيتم حذف حسابك وجميع بياناتك نهائياً. لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟")) return;
+
+    setDeletingAccount(true);
+    try {
+      await deleteMyAccount({ confirmation: deleteConfirmation });
+      toast.success("تم حذف الحساب نهائياً");
+      await signOut().catch(() => {});
+      navigate({ name: "home" });
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر حذف الحساب");
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   const TABS: { key: ProfileTab; label: string; Icon: any }[] = [
     { key: "info",       label: "بياناتي",   Icon: User },
     { key: "bookings",   label: "حجوزاتي",   Icon: CalendarDays },
     { key: "companions", label: "المرافقون", Icon: Users },
     { key: "wallet",     label: "المحفظة",   Icon: Wallet },
+    { key: "security",   label: "الأمان والتواصل", Icon: ShieldCheck },
   ];
 
   const activeBookings = bookings?.filter((b) => !["completed","cancelled"].includes(b.status)) ?? [];
@@ -122,6 +150,84 @@ export default function ProfilePage({ navigate }: { navigate: (p: Page) => void 
         <div className="max-w-4xl mx-auto flex items-center gap-5">
           <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 flex items-center justify-center text-3xl font-black">
             {(user?.name ?? user?.email ?? "م").charAt(0).toUpperCase()}
+            {false && tab === "security" && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                    الأمان والتواصل
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    هذه الخيارات مهمة للتطبيق: الدعم، السياسات، وإدارة الحساب.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => navigate({ name: "support" })}
+                    className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-right hover:bg-emerald-100 transition-colors"
+                  >
+                    <LifeBuoy className="w-6 h-6 text-emerald-700 mb-3" />
+                    <div className="font-bold text-gray-900">اتصل بنا</div>
+                    <div className="text-xs text-gray-500 mt-1">محادثة مباشرة مع إدارة المنصة</div>
+                  </button>
+                  <button
+                    onClick={() => navigate({ name: "privacy" })}
+                    className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-right hover:bg-blue-100 transition-colors"
+                  >
+                    <LockKeyhole className="w-6 h-6 text-blue-700 mb-3" />
+                    <div className="font-bold text-gray-900">سياسة الخصوصية</div>
+                    <div className="text-xs text-gray-500 mt-1">البيانات والصلاحيات والتتبع</div>
+                  </button>
+                  <button
+                    onClick={() => navigate({ name: "terms" })}
+                    className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-right hover:bg-amber-100 transition-colors"
+                  >
+                    <FileText className="w-6 h-6 text-amber-700 mb-3" />
+                    <div className="font-bold text-gray-900">الشروط والأحكام</div>
+                    <div className="text-xs text-gray-500 mt-1">قواعد استخدام المنصة والحجوزات</div>
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-black text-red-800">حذف حسابي</h3>
+                      <p className="text-sm text-red-700/80 leading-7 mt-1">
+                        سيتم حذف الحساب وجميع البيانات المرتبطة به نهائياً، بما في ذلك الحجوزات، المرافقين، المحفظة، محادثات الدعم، وسجلات الدخول. لا يمكن التراجع بعد التنفيذ.
+                      </p>
+                      {(user as any)?.isAdmin ? (
+                        <div className="mt-4 rounded-xl bg-white/80 border border-red-100 px-4 py-3 text-sm font-semibold text-red-700">
+                          حساب المدير لا يتم حذفه من هنا. ألغِ صلاحيات الإدارة أولاً من لوحة الإدارة.
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-3">
+                          <label className="block text-xs font-bold text-red-800">
+                            للتأكيد اكتب: حذف حسابي
+                          </label>
+                          <input
+                            value={deleteConfirmation}
+                            onChange={(e) => setDeleteConfirmation(e.target.value)}
+                            className="w-full rounded-xl border-2 border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                            placeholder="حذف حسابي"
+                          />
+                          <button
+                            onClick={handleDeleteAccount}
+                            disabled={deletingAccount || deleteConfirmation.trim() !== "حذف حسابي"}
+                            className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingAccount ? "جارٍ حذف الحساب..." : "حذف حسابي نهائياً"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-black">{user?.name ?? "المعتمر"}</h1>
@@ -405,6 +511,85 @@ export default function ProfilePage({ navigate }: { navigate: (p: Page) => void 
                     لا توجد معاملات بعد — ستظهر هنا عند إلغاء أي حجز
                   </div>
                 )}
+              </div>
+            )}
+
+            {tab === "security" && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                    الأمان والتواصل
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    هذه الخيارات مهمة للتطبيق: الدعم، السياسات، وإدارة الحساب.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => navigate({ name: "support" })}
+                    className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-right hover:bg-emerald-100 transition-colors"
+                  >
+                    <LifeBuoy className="w-6 h-6 text-emerald-700 mb-3" />
+                    <div className="font-bold text-gray-900">اتصل بنا</div>
+                    <div className="text-xs text-gray-500 mt-1">محادثة مباشرة مع إدارة المنصة</div>
+                  </button>
+                  <button
+                    onClick={() => navigate({ name: "privacy" })}
+                    className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-right hover:bg-blue-100 transition-colors"
+                  >
+                    <LockKeyhole className="w-6 h-6 text-blue-700 mb-3" />
+                    <div className="font-bold text-gray-900">سياسة الخصوصية</div>
+                    <div className="text-xs text-gray-500 mt-1">البيانات والصلاحيات والتتبع</div>
+                  </button>
+                  <button
+                    onClick={() => navigate({ name: "terms" })}
+                    className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-right hover:bg-amber-100 transition-colors"
+                  >
+                    <FileText className="w-6 h-6 text-amber-700 mb-3" />
+                    <div className="font-bold text-gray-900">الشروط والأحكام</div>
+                    <div className="text-xs text-gray-500 mt-1">قواعد استخدام المنصة والحجوزات</div>
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-black text-red-800">حذف حسابي</h3>
+                      <p className="text-sm text-red-700/80 leading-7 mt-1">
+                        سيتم حذف الحساب وجميع البيانات المرتبطة به نهائياً، بما في ذلك الحجوزات، المرافقين، المحفظة، محادثات الدعم، وسجلات الدخول. لا يمكن التراجع بعد التنفيذ.
+                      </p>
+                      {(user as any)?.isAdmin ? (
+                        <div className="mt-4 rounded-xl bg-white/80 border border-red-100 px-4 py-3 text-sm font-semibold text-red-700">
+                          حساب المدير لا يتم حذفه من هنا. ألغِ صلاحيات الإدارة أولاً من لوحة الإدارة.
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-3">
+                          <label className="block text-xs font-bold text-red-800">
+                            للتأكيد اكتب: حذف حسابي
+                          </label>
+                          <input
+                            value={deleteConfirmation}
+                            onChange={(e) => setDeleteConfirmation(e.target.value)}
+                            className="w-full rounded-xl border-2 border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                            placeholder="حذف حسابي"
+                          />
+                          <button
+                            onClick={handleDeleteAccount}
+                            disabled={deletingAccount || deleteConfirmation.trim() !== "حذف حسابي"}
+                            className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingAccount ? "جارٍ حذف الحساب..." : "حذف حسابي نهائياً"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

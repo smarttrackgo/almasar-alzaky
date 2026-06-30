@@ -1,6 +1,11 @@
 import { internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
+function settingToString(value: string | number | boolean | null | undefined) {
+  if (value === null || value === undefined) return null;
+  return String(value);
+}
+
 // ── جلب إعداد واحد من قاعدة البيانات ──
 export const getSetting = internalQuery({
   args: { key: v.string() },
@@ -9,7 +14,7 @@ export const getSetting = internalQuery({
       .query("appSettings")
       .withIndex("by_key", (q) => q.eq("key", args.key))
       .first();
-    return row?.value ?? null;
+    return settingToString(row?.value);
   },
 });
 

@@ -1,7 +1,16 @@
+import { useState } from "react";
 import { Page } from "../App";
-import { Tv, Radio, ChevronRight } from "lucide-react";
+import { Tv, Radio, ChevronRight, ExternalLink } from "lucide-react";
+
+const MADINAH_STREAMS = [
+  { label: "مشغل المدينة 1", src: "https://www.youtube.com/embed/ge2Xn-Lwk3U?rel=0&autoplay=0" },
+  { label: "مشغل المدينة 2", src: "https://www.youtube.com/embed/xJUqXbqLcXA?rel=0&autoplay=0" },
+  { label: "مشغل احتياطي", src: "https://www.youtube.com/embed/live_stream?channel=UCROKYPep-UuODNwyipe6JMw&rel=0&autoplay=0" },
+];
 
 export default function HaramainLivePage({ navigate }: { navigate: (p: Page) => void }) {
+  const [madinahStream, setMadinahStream] = useState(MADINAH_STREAMS[0].src);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-950 to-emerald-900" dir="rtl">
       <div className="max-w-5xl mx-auto px-4 pt-10 pb-6">
@@ -51,10 +60,38 @@ export default function HaramainLivePage({ navigate }: { navigate: (p: Page) => 
               LIVE
             </span>
           </div>
-          <div style={{ position: "relative", width: "100%", paddingBottom: "56.25%", height: 0, overflow: "hidden", borderRadius: "0 0 12px 12px" }}>
+          <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
+            {MADINAH_STREAMS.map((stream) => (
+              <button
+                key={stream.src}
+                onClick={() => setMadinahStream(stream.src)}
+                className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
+                  madinahStream === stream.src
+                    ? "bg-emerald-400 text-emerald-950 border-emerald-300"
+                    : "bg-white/5 text-emerald-100 border-white/10 hover:bg-white/10"
+                }`}
+              >
+                {stream.label}
+              </button>
+            ))}
+            <a
+              href="https://aloula.sba.sa/live/sunna"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ms-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 text-emerald-950 text-xs font-black hover:bg-amber-300 transition-colors"
+            >
+              المصدر الرسمي
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+          <p className="px-4 pt-3 text-xs text-emerald-200/75 leading-6">
+            لو توقف مشغل المدينة، جرّب المشغل الثاني أو افتح المصدر الرسمي لقناة السنة النبوية.
+          </p>
+          <div style={{ position: "relative", width: "100%", paddingBottom: "56.25%", height: 0, overflow: "hidden", borderRadius: "0 0 12px 12px", marginTop: "12px" }}>
             <iframe
+              key={madinahStream}
               style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-              src="https://www.youtube.com/embed/live_stream?channel=UCROKYPep-UuODNwyipe6JMw"
+              src={madinahStream}
               title="بث مباشر — المدينة المنورة"
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowFullScreen

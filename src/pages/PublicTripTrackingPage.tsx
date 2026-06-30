@@ -9,6 +9,7 @@ import {
   Maximize2, Minimize2, Wifi, WifiOff, Users,
   CheckCircle, ChevronRight, Timer,
 } from "lucide-react";
+import { bearingBetweenPoints, createBusMarkerIcon } from "../lib/trackingMapIcons";
 
 // ── حساب المسافة (Haversine) ──
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -53,24 +54,6 @@ L.Icon.Default.mergeOptions({
 });
 
 // ── أيقونة الحافلة ──
-const busIcon = L.divIcon({
-  className: "",
-  html: `<div style="
-    width:48px;height:48px;border-radius:50%;
-    background:linear-gradient(135deg,#059669,#047857);
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 20px rgba(5,150,105,0.6);
-    border:3px solid white;
-  ">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/>
-      <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-    </svg>
-  </div>`,
-  iconSize: [48, 48],
-  iconAnchor: [24, 24],
-});
-
 const waypointIcon = (done: boolean) => L.divIcon({
   className: "",
   html: `<div style="
@@ -533,6 +516,8 @@ function PublicMap({
   const mapRef      = useRef<HTMLDivElement>(null);
   const leafletMap  = useRef<L.Map | null>(null);
   const busMarker   = useRef<L.Marker | null>(null);
+  const lastBusPosition = useRef<[number, number] | null>(null);
+  const busHeading = useRef(0);
 
   // تهيئة الخريطة
   useEffect(() => {
@@ -569,10 +554,17 @@ function PublicMap({
   useEffect(() => {
     if (!leafletMap.current || !lat || !lng) return;
     const pos: [number, number] = [lat, lng];
+    const previous = lastBusPosition.current;
+    if (previous && haversineKm(previous[0], previous[1], lat, lng) > 0.015) {
+      busHeading.current = bearingBetweenPoints(previous[0], previous[1], lat, lng);
+    }
+    lastBusPosition.current = pos;
+    const markerIcon = createBusMarkerIcon({ isLive, speed, heading: busHeading.current });
     if (busMarker.current) {
       busMarker.current.setLatLng(pos);
+      busMarker.current.setIcon(markerIcon);
     } else {
-      busMarker.current = L.marker(pos, { icon: busIcon, zIndexOffset: 1000 })
+      busMarker.current = L.marker(pos, { icon: markerIcon, zIndexOffset: 1000 })
         .addTo(leafletMap.current!)
         .bindPopup(`<div dir="rtl" style="font-family:sans-serif">
           <strong style="color:#059669">🚌 الحافلة</strong>
@@ -580,7 +572,7 @@ function PublicMap({
         </div>`);
     }
     leafletMap.current.panTo(pos, { animate: true, duration: 1 });
-  }, [lat, lng, speed]);
+  }, [lat, lng, speed, isLive]);
 
   // إعادة ضبط الحجم عند التوسيع
   useEffect(() => {

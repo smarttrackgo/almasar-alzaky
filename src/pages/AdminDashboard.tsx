@@ -30,6 +30,13 @@ import {
 import { Id } from "../../convex/_generated/dataModel";
 
 const LOGO = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
+const paymentLogoDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+const MADA_PAYMENT_LOGO = paymentLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 64"><rect width="160" height="64" rx="16" fill="#0A2240"/><text x="80" y="41" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="800" fill="#00B4D8">mada</text></svg>`);
+const STC_PAYMENT_LOGO = paymentLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 64"><rect width="170" height="64" rx="16" fill="#6A0DAD"/><text x="85" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="800" fill="#FFFFFF">STC Pay</text></svg>`);
+const APPLE_PAYMENT_LOGO = paymentLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 64"><rect width="180" height="64" rx="16" fill="#000000"/><text x="90" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#FFFFFF">Apple Pay</text></svg>`);
+const GOOGLE_PAYMENT_LOGO = paymentLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 64"><rect width="190" height="64" rx="16" fill="#FFFFFF" stroke="#DADCE0" stroke-width="2"/><text x="95" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#5F6368">Google Pay</text></svg>`);
+const TABBY_PAYMENT_LOGO = paymentLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 64"><rect width="160" height="64" rx="18" fill="#3BE8B0"/><text x="80" y="41" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="800" fill="#12211C">tabby</text></svg>`);
+const TAMARA_PAYMENT_LOGO = paymentLogoDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 64"><rect width="180" height="64" rx="18" fill="#F7E8FF"/><circle cx="34" cy="32" r="15" fill="#09B982"/><text x="104" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="800" fill="#1F2937">tamara</text></svg>`);
 
 type Tab = "overview" | "offices" | "bookings" | "users" | "settings" | "announcements" | "commissions" | "statements" | "support" | "ai" | "whatsapp" | "email" | "wallet" | "reviews" | "sms";
 
@@ -729,6 +736,22 @@ function PaymentSettingsSection({
       ),
     },
     {
+      key: "payment_method_tabby",
+      label: "Tabby",
+      desc: "الدفع الآجل / التقسيط",
+      logo: (
+        <img src={TABBY_PAYMENT_LOGO} alt="Tabby" className="h-6 w-auto" />
+      ),
+    },
+    {
+      key: "payment_method_tamara",
+      label: "Tamara",
+      desc: "الدفع الآجل / التقسيط",
+      logo: (
+        <img src={TAMARA_PAYMENT_LOGO} alt="Tamara" className="h-6 w-auto" />
+      ),
+    },
+    {
       key: "payment_method_bank",
       label: "تحويل بنكي",
       desc: "تحويل بنكي مباشر",
@@ -878,10 +901,12 @@ function PaymentSettingsSection({
         <p className="text-xs text-gray-400 mb-4">ارفع صورة مخصصة لكل طريقة دفع — تظهر فوراً للمعتمرين في صفحة الدفع</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { key: "payment_img_mada",   label: "مدى",           fallback: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Mada_Logo.svg/200px-Mada_Logo.svg.png" },
-            { key: "payment_img_stc",    label: "STC Pay",       fallback: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/STC_Pay_Logo.svg/200px-STC_Pay_Logo.svg.png" },
-            { key: "payment_img_apple",  label: "Apple Pay",     fallback: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Apple_Pay_logo.svg/200px-Apple_Pay_logo.svg.png" },
-            { key: "payment_img_google", label: "Google Pay",    fallback: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/200px-Google_Pay_Logo.svg.png" },
+            { key: "payment_img_mada",   label: "مدى",           fallback: MADA_PAYMENT_LOGO },
+            { key: "payment_img_stc",    label: "STC Pay",       fallback: STC_PAYMENT_LOGO },
+            { key: "payment_img_apple",  label: "Apple Pay",     fallback: APPLE_PAYMENT_LOGO },
+            { key: "payment_img_google", label: "Google Pay",    fallback: GOOGLE_PAYMENT_LOGO },
+            { key: "payment_img_tabby",  label: "Tabby",         fallback: TABBY_PAYMENT_LOGO },
+            { key: "payment_img_tamara", label: "Tamara",        fallback: TAMARA_PAYMENT_LOGO },
             { key: "payment_img_bank",   label: "تحويل بنكي",   fallback: "https://cdn-icons-png.flaticon.com/512/2830/2830284.png" },
           ].map(({ key, label, fallback }) => {
             const currentUrl = imgPreviews[key] || getValue(key) || fallback;
@@ -958,6 +983,50 @@ function PaymentSettingsSection({
       </div>
 
       {/* تعليمات الدفع */}
+      <div className="bg-white rounded-xl p-4 border border-white shadow-sm">
+        <label className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+          <ShieldCheck className="w-4 h-4 text-violet-500" />
+          ربط بوابات الدفع الإلكتروني
+        </label>
+        <p className="text-xs text-gray-400 mb-4">
+          عند حفظ Checkout URL سيتم تحويل المعتمر للبوابة مع bookingRef وamount وcurrency وtransactionId. مفاتيح Secret تظل محفوظة في الإعدادات ولا تظهر للمعتمر.
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[
+            { key: "payment_tabby_checkout_url", label: "Tabby Checkout URL", placeholder: "https://..." },
+            { key: "payment_tamara_checkout_url", label: "Tamara Checkout URL", placeholder: "https://..." },
+            { key: "payment_tabby_public_key", label: "Tabby Public Key", placeholder: "pk_..." },
+            { key: "payment_tamara_public_key", label: "Tamara Public Key", placeholder: "public key" },
+            { key: "payment_tabby_secret_key", label: "Tabby Secret Key", placeholder: "secret key", secret: true },
+            { key: "payment_tamara_secret_key", label: "Tamara Secret Key", placeholder: "secret key", secret: true },
+            { key: "payment_return_url", label: "Payment Return URL", placeholder: "https://almasaralzaky.com/..." },
+            { key: "payment_webhook_url", label: "Payment Webhook URL", placeholder: "https://.../webhook" },
+          ].map(({ key, label, placeholder, secret }) => (
+            <div key={key}>
+              <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+              <div className="flex gap-2">
+                <input
+                  value={getVal(key)}
+                  onChange={(e) => setVal(key, e.target.value)}
+                  placeholder={placeholder}
+                  type={secret ? "password" : "text"}
+                  dir="ltr"
+                  className={`${inp} flex-1`}
+                />
+                <button
+                  onClick={() => handleSave(key)}
+                  disabled={saving === key}
+                  className="px-3 py-2 rounded-xl bg-gradient-to-l from-emerald-700 to-emerald-600 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+                >
+                  {saving === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  حفظ
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl p-4 border border-white shadow-sm">
         <label className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
           <StickyNote className="w-4 h-4 text-violet-500" />
