@@ -31,10 +31,19 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("يجب تسجيل الدخول أولاً");
+    const user = await ctx.db.get(userId);
     const pkg = await ctx.db.get(args.packageId);
     if (!pkg) throw new ConvexError("البرنامج غير موجود");
     if (pkg.availableSeats < args.adultsCount)
       throw new ConvexError("عدد المقاعد المتاحة غير كافٍ");
+
+    const leadPassengerName = args.leadPassengerName.trim() || user?.name;
+    const leadPassengerPhone = args.leadPassengerPhone.trim() || user?.phone;
+    const leadPassengerIdNumber = args.leadPassengerIdNumber.trim() || (user as any)?.idNumber;
+
+    if (!leadPassengerName || !leadPassengerPhone || !leadPassengerIdNumber) {
+      throw new ConvexError("يرجى إكمال بيانات المعتمر الأساسية في الملف الشخصي أولاً");
+    }
 
     const totalPrice =
       pkg.price * args.adultsCount +
@@ -53,9 +62,9 @@ export const create = mutation({
       totalPrice,
       adultsCount:           args.adultsCount,
       childrenCount:         args.childrenCount,
-      leadPassengerName:     args.leadPassengerName,
-      leadPassengerPhone:    args.leadPassengerPhone,
-      leadPassengerIdNumber: args.leadPassengerIdNumber,
+      leadPassengerName,
+      leadPassengerPhone,
+      leadPassengerIdNumber,
       notes:                 args.notes,
       bookingReference:      bookingRef,
       commissionRate,
@@ -68,6 +77,14 @@ export const create = mutation({
     });
 
     // إشعار داخلي
+    const profileUpdates: any = {};
+    if (leadPassengerName && user?.name !== leadPassengerName) profileUpdates.name = leadPassengerName;
+    if (leadPassengerPhone && user?.phone !== leadPassengerPhone) profileUpdates.phone = leadPassengerPhone;
+    if (leadPassengerIdNumber && (user as any)?.idNumber !== leadPassengerIdNumber) profileUpdates.idNumber = leadPassengerIdNumber;
+    if (Object.keys(profileUpdates).length > 0) {
+      await ctx.db.patch(userId, profileUpdates);
+    }
+
     await ctx.db.insert("notifications", {
       userId,
       title: "✅ تم استلام طلب حجزك",
@@ -85,8 +102,8 @@ export const create = mutation({
       : "";
     await ctx.scheduler.runAfter(0, internal.whatsappActions.sendBookingCreated, {
       bookingId,
-      phone:          args.leadPassengerPhone,
-      passengerName:  args.leadPassengerName,
+      phone:          leadPassengerPhone,
+      passengerName:  leadPassengerName,
       bookingRef,
       packageTitle:   pkg.title,
       totalPrice,

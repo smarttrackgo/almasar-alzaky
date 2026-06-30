@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -49,6 +49,7 @@ export default function PackageDetailPage({
   navigate: (p: Page) => void;
 }) {
   const pkg = useQuery(api.packages.getById, { packageId });
+  const user = useQuery(api.auth.loggedInUser);
   const createBooking = useMutation(api.bookings.create);
 
   const [showForm, setShowForm]       = useState(false);
@@ -61,6 +62,35 @@ export default function PackageDetailPage({
   const [notes, setNotes]             = useState("");
   const [loading, setLoading]         = useState(false);
   const [showCountryList, setShowCountryList] = useState(false);
+
+  const splitPhone = (phone?: string | null) => {
+    const digits = (phone ?? "").replace(/\D/g, "");
+    const matched = [...COUNTRY_CODES]
+      .sort((a, b) => b.code.length - a.code.length)
+      .find((c) => digits.startsWith(c.code.replace("+", "")));
+
+    if (!matched) {
+      return { code: "+966", local: digits.startsWith("0") ? digits.slice(1) : digits };
+    }
+
+    return {
+      code: matched.code,
+      local: digits.slice(matched.code.replace("+", "").length),
+    };
+  };
+
+  const fillFromProfile = () => {
+    const savedPhone = splitPhone((user as any)?.phone);
+    setName((user as any)?.name ?? "");
+    setCountryCode(savedPhone.code);
+    setPhoneLocal(savedPhone.local);
+    setIdNum((user as any)?.idNumber ?? "");
+  };
+
+  useEffect(() => {
+    if (!user || showForm) return;
+    fillFromProfile();
+  }, [user?._id, showForm]);
 
   // دمج رمز الدولة مع الرقم المحلي وتنظيفه
   const buildFullPhone = (): string => {
@@ -311,7 +341,10 @@ export default function PackageDetailPage({
                       </div>
                       <Authenticated>
                         <button
-                          onClick={() => setShowForm(true)}
+                          onClick={() => {
+                            fillFromProfile();
+                            setShowForm(true);
+                          }}
                           disabled={pkg.availableSeats === 0}
                           className="w-full py-3.5 rounded-xl font-bold text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ background: "linear-gradient(135deg,#1b4332,#2d6a4f)" }}
@@ -332,6 +365,9 @@ export default function PackageDetailPage({
                   ) : (
                     <form onSubmit={handleBooking} className="space-y-4">
                       <h3 className="font-bold text-gray-800 text-base">بيانات الحجز</h3>
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 leading-6">
+                        يتم استخدام بيانات حسابك الأساسية في الحجز. أي تعديل هنا سيُحفظ تلقائيًا في ملفك الشخصي.
+                      </div>
 
                       {/* Counters */}
                       <div className="grid grid-cols-2 gap-3">
