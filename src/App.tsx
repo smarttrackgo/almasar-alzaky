@@ -287,7 +287,10 @@ function AttendanceLinkPage({
         </p>
         <div className="grid grid-cols-1 gap-3">
           <button
-            onClick={() => navigate({ name: "driver-dashboard" })}
+            onClick={() => {
+              window.history.replaceState({}, "", window.location.pathname);
+              navigate({ name: "driver-dashboard" });
+            }}
             className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl py-3 font-bold"
           >
             فتح لوحة السائق
