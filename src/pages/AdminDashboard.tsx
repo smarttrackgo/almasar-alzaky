@@ -3019,6 +3019,7 @@ function AdminCommissionsTab() {
     <div className="space-y-6">
 
       {/* ── بانر المزامنة ── */}
+      {false && (
       <div className="bg-gradient-to-l from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center gap-4">
         <div className="flex items-start gap-3 flex-1">
           <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -3043,6 +3044,7 @@ function AdminCommissionsTab() {
           }
         </button>
       </div>
+      )}
 
       {/* إحصائيات */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

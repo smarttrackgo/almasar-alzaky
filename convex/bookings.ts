@@ -13,6 +13,50 @@ async function getEffectiveRate(ctx: any, officeId: string): Promise<number> {
   return await getOfficeCommissionRate(ctx, officeId);
 }
 
+async function upsertCommissionForBooking(ctx: any, bookingId: any) {
+  const booking = await ctx.db.get(bookingId);
+  if (!booking) return null;
+
+  const existing = await ctx.db
+    .query("commissions")
+    .withIndex("by_booking", (q: any) => q.eq("bookingId", bookingId))
+    .unique();
+
+  if (booking.status === "cancelled") {
+    if (existing && existing.status === "pending") {
+      await ctx.db.patch(existing._id, { status: "cancelled" });
+    }
+    return existing?._id ?? null;
+  }
+
+  const rate = booking.commissionRate ?? await getEffectiveRate(ctx, booking.officeId);
+  const bookingAmount = booking.officeBaseAmount ?? booking.totalPrice;
+  const commissionAmount = Math.round((bookingAmount * rate) / 100);
+  const netAmount = bookingAmount - commissionAmount;
+  const status = booking.status === "completed" ? "settled" : "pending";
+  const patch: any = {
+    bookingAmount,
+    commissionRate: rate,
+    commissionAmount,
+    netAmount,
+    status,
+    ...(status === "settled" ? { settledAt: Date.now() } : {}),
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, patch);
+  } else {
+    await ctx.db.insert("commissions", {
+      bookingId,
+      officeId: booking.officeId,
+      ...patch,
+    });
+  }
+
+  await ctx.db.patch(bookingId, { commissionRate: rate, commissionAmount, netAmount });
+  return existing?._id ?? null;
+}
+
 export const create = mutation({
   args: {
     packageId:              v.id("packages"),
@@ -72,6 +116,8 @@ export const create = mutation({
       commissionAmount:      pricing.officeCommissionAmount,
       netAmount:             pricing.officeNetAmount,
     });
+
+    await upsertCommissionForBooking(ctx, bookingId);
 
     await ctx.db.patch(args.packageId, {
       availableSeats: pkg.availableSeats - args.adultsCount,
@@ -294,6 +340,8 @@ export const adminCreateBooking = mutation({
       netAmount:             pricing.officeNetAmount,
     });
 
+    await upsertCommissionForBooking(ctx, bookingId);
+
     if (pkg.availableSeats >= args.adultsCount) {
       await ctx.db.patch(args.packageId, {
         availableSeats: pkg.availableSeats - args.adultsCount,
@@ -392,30 +440,10 @@ export const updateStatus = mutation({
     const updates: any = { status: args.status };
     if (args.permitNumber) updates.permitNumber = args.permitNumber;
     await ctx.db.patch(args.bookingId, updates);
+    await upsertCommissionForBooking(ctx, args.bookingId);
 
     // ── تأكيد الحجز ──
     if (args.status === "confirmed") {
-      const existing = await ctx.db
-        .query("commissions")
-        .withIndex("by_booking", (q) => q.eq("bookingId", args.bookingId))
-        .unique();
-      if (!existing) {
-        const rate             = booking.commissionRate ?? await getEffectiveRate(ctx, booking.officeId);
-        const bookingAmount    = booking.officeBaseAmount ?? booking.totalPrice;
-        const commissionAmount = Math.round((bookingAmount * rate) / 100);
-        const netAmount        = bookingAmount - commissionAmount;
-        await ctx.db.insert("commissions", {
-          bookingId:        args.bookingId,
-          officeId:         booking.officeId,
-          bookingAmount,
-          commissionRate:   rate,
-          commissionAmount,
-          netAmount,
-          status:           "pending",
-        });
-        await ctx.db.patch(args.bookingId, { commissionRate: rate, commissionAmount, netAmount });
-      }
-
       // إشعار داخلي
       await ctx.db.insert("notifications", {
         userId:  booking.userId,
@@ -602,6 +630,7 @@ export const cancelByUser = mutation({
     }
 
     await ctx.db.patch(args.bookingId, { status: "cancelled" });
+    await upsertCommissionForBooking(ctx, args.bookingId);
 
     const commission = await ctx.db
       .query("commissions")
@@ -787,5 +816,6 @@ export const adminUpdateStatus = mutation({
     const admin = await ctx.db.get(userId);
     if (!admin?.isAdmin) throw new ConvexError("غير مصرح لك");
     await ctx.db.patch(args.bookingId, { status: args.status });
+    await upsertCommissionForBooking(ctx, args.bookingId);
   },
 });

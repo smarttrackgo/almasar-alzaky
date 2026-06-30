@@ -13,6 +13,47 @@ async function requireAdmin(ctx: any) {
   return userId;
 }
 
+async function getDefaultCommissionRate(ctx: any) {
+  const setting = await ctx.db
+    .query("appSettings")
+    .withIndex("by_key", (q: any) => q.eq("key", "commission_rate"))
+    .unique();
+  return setting ? parseFloat(setting.value) : DEFAULT_COMMISSION_RATE;
+}
+
+async function deriveCommissionFromBooking(ctx: any, booking: any, defaultRate: number) {
+  const stored = await ctx.db
+    .query("commissions")
+    .withIndex("by_booking", (q: any) => q.eq("bookingId", booking._id))
+    .unique();
+  const office = await ctx.db.get(booking.officeId);
+  const rate = stored?.commissionRate ?? booking.commissionRate ?? office?.commissionRate ?? defaultRate;
+  const bookingAmount = stored?.bookingAmount ?? booking.officeBaseAmount ?? booking.totalPrice ?? 0;
+  const commissionAmount = stored?.commissionAmount ?? booking.commissionAmount ?? Math.round((bookingAmount * rate) / 100);
+  const netAmount = stored?.netAmount ?? booking.netAmount ?? (bookingAmount - commissionAmount);
+  const status = booking.status === "cancelled"
+    ? "cancelled"
+    : booking.status === "completed"
+      ? "settled"
+      : (stored?.status ?? "pending");
+
+  return {
+    ...(stored ?? {}),
+    _id: stored?._id ?? booking._id,
+    _creationTime: stored?._creationTime ?? booking._creationTime,
+    bookingId: booking._id,
+    officeId: booking.officeId,
+    bookingAmount,
+    commissionRate: rate,
+    commissionAmount,
+    netAmount,
+    status,
+    settledAt: stored?.settledAt,
+    office,
+    booking,
+  };
+}
+
 export const getDefaultRate = query({
   args: {},
   handler: async (ctx) => {
@@ -71,7 +112,11 @@ export const adminStats = query({
     const user = await ctx.db.get(userId);
     if (!user?.isAdmin) return null;
 
-    const all = await ctx.db.query("commissions").collect();
+    const defaultRate = await getDefaultCommissionRate(ctx);
+    const bookings = await ctx.db.query("bookings").collect();
+    const all = await Promise.all(
+      bookings.map((booking) => deriveCommissionFromBooking(ctx, booking, defaultRate))
+    );
     const pending   = all.filter((c) => c.status === "pending");
     const settled   = all.filter((c) => c.status === "settled");
     const cancelled = all.filter((c) => c.status === "cancelled");
@@ -97,13 +142,10 @@ export const adminList = query({
     const user = await ctx.db.get(userId);
     if (!user?.isAdmin) return [];
 
-    const commissions = await ctx.db.query("commissions").order("desc").collect();
+    const defaultRate = await getDefaultCommissionRate(ctx);
+    const bookings = await ctx.db.query("bookings").order("desc").collect();
     return await Promise.all(
-      commissions.map(async (c) => {
-        const office  = await ctx.db.get(c.officeId);
-        const booking = await ctx.db.get(c.bookingId);
-        return { ...c, office, booking };
-      })
+      bookings.map((booking) => deriveCommissionFromBooking(ctx, booking, defaultRate))
     );
   },
 });
