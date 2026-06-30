@@ -1,0 +1,11 @@
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[build.environment]
+  VITE_CONVEX_URL = "https://calm-trout-152.convex.cloud"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
