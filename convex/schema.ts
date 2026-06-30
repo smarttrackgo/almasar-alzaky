@@ -25,6 +25,7 @@ const applicationTables = {
 
   packages: defineTable({
     officeId: v.id("offices"),
+    packageReference: v.optional(v.string()),
     title: v.string(),
     description: v.string(),
     duration: v.number(),
@@ -47,6 +48,7 @@ const applicationTables = {
     roomType: v.optional(v.string()),
   })
     .index("by_office", ["officeId"])
+    .index("by_package_reference", ["packageReference"])
     .index("by_departure_city", ["departureCity"])
     .index("by_package_type", ["packageType"]),
 

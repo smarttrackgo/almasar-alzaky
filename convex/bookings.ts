@@ -8,6 +8,10 @@ function generateRef(): string {
   return "MSR-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+function fallbackPackageReference(id: unknown): string {
+  return `PRG-${String(id).replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase()}`;
+}
+
 // ── جلب نسبة العمولة الفعّالة لمكتب ──
 async function getEffectiveRate(ctx: any, officeId: string): Promise<number> {
   return await getOfficeCommissionRate(ctx, officeId);
@@ -250,7 +254,11 @@ export const getBookingById = query({
       showDriverInfo = depTs - now <= sixHours || ACTIVE_TRIP_STATUSES.includes(trip.status);
     }
 
-    return { ...booking, package: pkg, office, payment, trip, bus, driver: driverData, showDriverInfo };
+    const packageWithReference = pkg
+      ? { ...pkg, packageReference: (pkg as any).packageReference ?? fallbackPackageReference(pkg._id) }
+      : pkg;
+
+    return { ...booking, package: packageWithReference, office, payment, trip, bus, driver: driverData, showDriverInfo };
   },
 });
 

@@ -18,6 +18,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { printHtml } from "../lib/printDocument";
 import { printTaxInvoice } from "../lib/taxInvoice";
 import { SAUDI_CITIES } from "../lib/saudiCities";
+import { programReference } from "../lib/programReference";
 
 const LOGO_URL = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
 
@@ -838,6 +839,10 @@ function PackagesTab({ officeId }: { officeId: any }) {
       ) : packages.map((pkg) => (
         <div key={pkg._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700 border border-emerald-100">
+              <span>رقم البرنامج</span>
+              <span className="font-mono tracking-wide">{programReference(pkg)}</span>
+            </div>
             <h3 className="font-bold text-gray-800 truncate">{pkg.title}</h3>
             <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
               <span>{pkg.duration} يوم</span>

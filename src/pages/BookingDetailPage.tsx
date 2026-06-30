@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { printHtml } from "../lib/printDocument";
 import QRCode from "qrcode";
 import { QRCodeSVG } from "qrcode.react";
+import { programReference } from "../lib/programReference";
 
 /* ══════════════════════════════════════════════════════════════════
    الثوابت والخرائط
@@ -400,6 +401,7 @@ export default function BookingDetailPage({
   const status        = STATUS_MAP[data.status] ?? STATUS_MAP.pending;
   const paymentStatus = data.payment ? (PAYMENT_STATUS[data.payment.status] ?? PAYMENT_STATUS.pending) : null;
   const isConfirmed   = data.status === "confirmed" || data.status === "completed";
+  const packageRef    = programReference(data.package);
 
   const departureDateStr = data.package?.departureDate
     ? new Date(data.package.departureDate).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })
@@ -598,6 +600,7 @@ export default function BookingDetailPage({
       <div>
         <div class="ref-label">رقم الحجز</div>
         <div class="ref-num">${data.bookingReference}</div>
+        <div style="margin-top:8px;font-size:10px;color:#d1fae5">رقم البرنامج: <span style="font-family:monospace;font-weight:900;color:#fcd34d">${packageRef}</span></div>
       </div>
       <div class="status-badge">${statusLabel[data.status] ?? data.status}</div>
     </div>
@@ -878,6 +881,9 @@ export default function BookingDetailPage({
               <div>
                 <p className="text-emerald-200 text-xs mb-1">رقم الحجز</p>
                 <p className="text-2xl font-mono font-bold tracking-widest">{data.bookingReference}</p>
+                <p className="text-emerald-200 text-xs mt-2">
+                  رقم البرنامج <span className="font-mono font-black text-amber-200 tracking-wider">{packageRef}</span>
+                </p>
               </div>
               <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${status.bg} ${status.color}`}>
                 {status.icon}

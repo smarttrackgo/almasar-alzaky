@@ -1,9 +1,11 @@
 import { Page } from "../App";
 import { Id } from "../../convex/_generated/dataModel";
 import { MapPin, Clock, Calendar, Hotel, Star, BadgeCheck } from "lucide-react";
+import { programReference } from "../lib/programReference";
 
 type Pkg = {
   _id: Id<"packages">;
+  packageReference?: string;
   title: string;
   description: string;
   duration: number;
@@ -36,6 +38,7 @@ const TYPE_CLS: Record<string, string> = {
 export default function PackageCard({ pkg, navigate }: { pkg: Pkg; navigate: (p: Page) => void }) {
   const pct = Math.round(((pkg.totalSeats - pkg.availableSeats) / pkg.totalSeats) * 100);
   const almostFull = pkg.availableSeats <= 5;
+  const ref = programReference(pkg);
 
   return (
     <article
@@ -53,6 +56,10 @@ export default function PackageCard({ pkg, navigate }: { pkg: Pkg; navigate: (p:
               خصم {Math.round(((pkg.originalPrice - pkg.price) / pkg.originalPrice) * 100)}%
             </span>
           )}
+        </div>
+        <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-emerald-100 border border-white/10">
+          <span>رقم البرنامج</span>
+          <span className="font-mono tracking-wide text-amber-200">{ref}</span>
         </div>
         <h3 className="text-white font-bold text-base leading-snug line-clamp-2">{pkg.title}</h3>
         <div className="flex items-center gap-4 mt-2.5 text-emerald-200 text-xs">

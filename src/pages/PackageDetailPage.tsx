@@ -5,6 +5,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { Page } from "../App";
 import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
+import { programReference } from "../lib/programReference";
 import {
   ArrowRight, MapPin, Calendar, Clock, Users,
   Star, BadgeCheck, CheckCircle2, XCircle, ChevronDown,
@@ -124,6 +125,7 @@ export default function PackageDetailPage({
   }
 
   const totalPrice = pkg.price * adults + pkg.price * 0.5 * children;
+  const packageRef = programReference(pkg);
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +211,10 @@ export default function PackageDetailPage({
                   )}
                 </div>
                 <h1 className="text-3xl font-black mb-3">{pkg.title}</h1>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-1 mb-3 text-sm font-bold text-emerald-100">
+                  <span>رقم البرنامج</span>
+                  <span className="font-mono text-amber-200 tracking-wider">{packageRef}</span>
+                </div>
                 <p className="text-emerald-200 leading-relaxed">{pkg.description}</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                   {[
@@ -335,6 +341,10 @@ export default function PackageDetailPage({
                   {!showForm ? (
                     <>
                       <div className="space-y-3 mb-5 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">رقم البرنامج</span>
+                          <span className="font-mono font-bold text-emerald-700">{packageRef}</span>
+                        </div>
                         {[
                           { label: "المدة",          value: `${pkg.duration} يوم` },
                           { label: "تاريخ الانطلاق", value: new Date(pkg.departureDate).toLocaleDateString("ar-SA") },

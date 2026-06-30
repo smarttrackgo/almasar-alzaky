@@ -3,6 +3,35 @@ import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { calculatePackagePricing } from "./pricing";
 
+function fallbackPackageReference(id: unknown): string {
+  return `PRG-${String(id).replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase()}`;
+}
+
+function generatePackageReference(): string {
+  const year = new Date().getFullYear();
+  const suffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `PRG-${year}-${suffix}`;
+}
+
+async function uniquePackageReference(ctx: any): Promise<string> {
+  for (let i = 0; i < 8; i += 1) {
+    const ref = generatePackageReference();
+    const existing = await ctx.db
+      .query("packages")
+      .withIndex("by_package_reference", (q: any) => q.eq("packageReference", ref))
+      .first();
+    if (!existing) return ref;
+  }
+  return generatePackageReference();
+}
+
+function withPackageReference(pkg: any) {
+  return {
+    ...pkg,
+    packageReference: pkg.packageReference ?? fallbackPackageReference(pkg._id),
+  };
+}
+
 export const list = query({
   args: {
     departureCity: v.optional(v.string()),
@@ -19,7 +48,7 @@ export const list = query({
       filtered.map(async (pkg) => {
         const pricing = await calculatePackagePricing(ctx, pkg.officeId, pkg.price);
         return {
-          ...pkg,
+          ...withPackageReference(pkg),
           officePrice: pkg.price,
           price: pricing.displayPrice,
           pricing,
@@ -136,7 +165,7 @@ export const getById = query({
     );
     const pricing = await calculatePackagePricing(ctx, pkg.officeId, pkg.price);
     return {
-      ...pkg,
+      ...withPackageReference(pkg),
       officePrice: pkg.price,
       price: pricing.displayPrice,
       pricing,
@@ -149,10 +178,11 @@ export const getById = query({
 export const getByOffice = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const packages = await ctx.db
       .query("packages")
       .withIndex("by_office", (q) => q.eq("officeId", args.officeId))
       .collect();
+    return packages.map(withPackageReference);
   },
 });
 
@@ -182,7 +212,8 @@ export const create = mutation({
     const office = await ctx.db.get(args.officeId);
     if (!office || office.userId !== userId)
       throw new ConvexError("غير مصرح لك بإضافة برامج لهذا المكتب");
-    return await ctx.db.insert("packages", { ...args, isActive: true });
+    const packageReference = await uniquePackageReference(ctx);
+    return await ctx.db.insert("packages", { ...args, packageReference, isActive: true });
   },
 });
 
