@@ -51,6 +51,7 @@ export default function PackageDetailPage({
   const pkg = useQuery(api.packages.getById, { packageId });
   const user = useQuery(api.auth.loggedInUser);
   const createBooking = useMutation(api.bookings.create);
+  const updateProfile = useMutation(api.bookings.updateProfile);
 
   const [showForm, setShowForm]       = useState(false);
   const [adults, setAdults]           = useState(1);
@@ -131,6 +132,12 @@ export default function PackageDetailPage({
     if (phoneLocal.trim().replace(/\D/g, "").length < 7) { toast.error("رقم الجوال غير صحيح"); return; }
     setLoading(true);
     try {
+      await updateProfile({
+        name,
+        phone: fullPhone,
+        idNumber: idNum,
+      });
+
       const result = await createBooking({
         packageId,
         adultsCount: adults,
