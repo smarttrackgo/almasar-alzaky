@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
+import AnnouncementBanner from "../components/AnnouncementBanner";
 import PackageCard from "../components/PackageCard";
 import { SAUDI_CITIES } from "../lib/saudiCities";
 import { useI18n } from "../lib/i18n";
@@ -256,6 +257,8 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
       </section>
 
       {/* ── رؤية 2030 ── */}
+      <AnnouncementBanner placement="home" variant="cards" limit={2} className="py-8 bg-gray-50" />
+
       <Vision2030Banner />
 
       {/* ── Packages ── */}

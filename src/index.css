@@ -716,29 +716,10 @@ button {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  filter: drop-shadow(0 18px 22px rgba(2, 44, 34, .32));
-}
-.smart-ai-hand {
-  position: absolute;
-  right: -8px;
-  bottom: -3px;
-  width: 116px;
-  height: 128px;
-  border-radius: 0;
-  transform-origin: 24% 63%;
-  animation: smartAiPhotoWave 2.9s ease-in-out infinite;
+  transform-origin: 24% 48%;
+  animation: smartAiPortraitWave 3.6s ease-in-out infinite;
   will-change: transform;
-  pointer-events: none;
-}
-.smart-ai-hand img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-  filter: drop-shadow(0 14px 18px rgba(2, 44, 34, .22));
-}
-.smart-ai-hand::after {
-  content: none;
+  filter: drop-shadow(0 18px 22px rgba(2, 44, 34, .32));
 }
 @keyframes smartAiIntroIn {
   from { opacity: 0; transform: translate3d(-18px, 24px, 0) scale(.94); }
@@ -755,12 +736,11 @@ button {
   36% { transform: rotate(17deg); }
   50% { transform: rotate(-16deg); }
 }
-@keyframes smartAiPhotoWave {
+@keyframes smartAiPortraitWave {
   0%, 100% { transform: rotate(0deg) translate3d(0, 0, 0); }
-  16% { transform: rotate(-7deg) translate3d(-1px, -1px, 0); }
-  32% { transform: rotate(5deg) translate3d(1px, 0, 0); }
-  48% { transform: rotate(-5deg) translate3d(-1px, -1px, 0); }
-  64% { transform: rotate(3deg) translate3d(0, 0, 0); }
+  18% { transform: rotate(-1.4deg) translate3d(-1px, -1px, 0); }
+  36% { transform: rotate(.9deg) translate3d(1px, 0, 0); }
+  54% { transform: rotate(-.8deg) translate3d(0, -1px, 0); }
 }
 @keyframes smartAiHalo {
   0%, 100% { opacity: .74; transform: scale(.96); }
@@ -782,12 +762,6 @@ button {
     height: 78px;
   }
   .smart-ai-intro .smart-ai-body {
-    right: -6px;
-    width: 78px;
-    height: 86px;
-    border-radius: 0;
-  }
-  .smart-ai-intro .smart-ai-hand {
     right: -6px;
     width: 78px;
     height: 86px;

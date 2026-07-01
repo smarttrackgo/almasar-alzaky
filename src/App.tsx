@@ -44,7 +44,7 @@ import PWAInstallBanner from "./components/PWAInstallBanner";
 import PushNotificationPrompt from "./components/PushNotificationPrompt";
 import { LanguageProvider, LanguageSelector, useI18n } from "./lib/i18n";
 import { ThemeProvider, ThemeToggle } from "./lib/theme";
-import { Menu, X, User, Headphones, Truck, ChevronRight, CheckCircle } from "lucide-react";
+import { Menu, X, User, Headphones, Truck, ChevronRight, CheckCircle, Building2, ShieldCheck } from "lucide-react";
 
 const LOGO = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
 
@@ -539,6 +539,13 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
   const user = useQuery(api.auth.loggedInUser);
   const { t } = useI18n();
   const pageLabel = PAGE_LABELS[page.name] ?? t("nav.back");
+  const isAdmin = Boolean((user as any)?.isAdmin);
+  const isOffice = Boolean(user?.accountType === "office" || (user as any)?.isOfficeOwner);
+  const dashboardShortcut = isAdmin
+    ? { page: { name: "admin" } as Page, label: t("nav.admin"), Icon: ShieldCheck, active: page.name === "admin" }
+    : isOffice
+      ? { page: { name: "office-dashboard" } as Page, label: t("nav.office"), Icon: Building2, active: page.name === "office-dashboard" }
+      : null;
 
   return (
     <header className={`smart-navbar sticky top-0 z-[1000] border-b backdrop-blur-xl transition-all duration-300 ${menuOpen ? "smart-navbar-open" : ""}`}>
@@ -625,6 +632,20 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
         <div className="flex items-center gap-2">
           <Authenticated>
             <NotificationBell navigate={navigate} />
+            {dashboardShortcut && (
+              <button
+                onClick={() => navigate(dashboardShortcut.page)}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-black shadow-lg transition-all sm:text-sm ${
+                  dashboardShortcut.active
+                    ? "border-amber-200 bg-amber-300 text-emerald-950 shadow-amber-950/10"
+                    : "border-amber-200/45 bg-amber-300/90 text-emerald-950 shadow-amber-950/10 hover:bg-amber-200"
+                }`}
+                title={dashboardShortcut.label}
+              >
+                <dashboardShortcut.Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">{dashboardShortcut.label}</span>
+              </button>
+            )}
             <button
               onClick={() => navigate({ name: "profile" })}
               className={`hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold transition-all ${

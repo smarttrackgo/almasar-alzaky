@@ -1115,16 +1115,50 @@ function PaymentSettingsSection({
 function AnnouncementsTab() {
   const announcements  = useQuery(api.announcements.getAll);
   const createAnn      = useMutation(api.announcements.create);
+  const updateAnn      = useMutation(api.announcements.update);
   const toggleAnn      = useMutation(api.announcements.toggle);
   const deleteAnn      = useMutation(api.announcements.remove);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<any>(null);
   const [form, setForm] = useState({
     title: "", content: "", type: "info", isActive: true,
-    imageUrl: "", linkUrl: "", priority: 0,
+    imageUrl: "", linkUrl: "", ctaLabel: "",
+    targetAudience: "all", placement: "top", priority: 0,
+    startsAt: "", expiresAt: "",
   });
   const [saving, setSaving] = useState(false);
 
   const inp = "w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all";
+  const resetAnnouncementForm = () => {
+    setEditingId(null);
+    setForm({
+      title: "", content: "", type: "info", isActive: true,
+      imageUrl: "", linkUrl: "", ctaLabel: "",
+      targetAudience: "all", placement: "top", priority: 0,
+      startsAt: "", expiresAt: "",
+    });
+  };
+  const toDateInput = (value?: number) => {
+    if (!value) return "";
+    const date = new Date(value);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    return date.toISOString().slice(0, 16);
+  };
+  const toTimestamp = (value: string) => value ? new Date(value).getTime() : undefined;
+  const announcementPayload = () => ({
+    title: form.title.trim(),
+    content: form.content.trim(),
+    type: form.type,
+    isActive: form.isActive,
+    imageUrl: form.imageUrl.trim() || undefined,
+    linkUrl: form.linkUrl.trim() || undefined,
+    ctaLabel: form.ctaLabel.trim() || undefined,
+    targetAudience: form.targetAudience,
+    placement: form.placement,
+    priority: Number(form.priority) || 0,
+    startsAt: toTimestamp(form.startsAt),
+    expiresAt: toTimestamp(form.expiresAt),
+  });
 
   const handleCreate = async () => {
     if (!form.title || !form.content) { toast.error("العنوان والمحتوى مطلوبان"); return; }
@@ -1140,12 +1174,54 @@ function AnnouncementsTab() {
       });
       toast.success("✅ تم إنشاء الإعلان");
       setShowForm(false);
-      setForm({ title: "", content: "", type: "info", isActive: true, imageUrl: "", linkUrl: "", priority: 0 });
+      resetAnnouncementForm();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "حدث خطأ");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveAnnouncement = async () => {
+    if (!form.title.trim() || !form.content.trim()) {
+      toast.error("العنوان والمحتوى مطلوبان");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateAnn({ announcementId: editingId, ...announcementPayload() });
+        toast.success("تم تحديث الإعلان");
+      } else {
+        await createAnn(announcementPayload());
+        toast.success("تم إنشاء الإعلان");
+      }
+      setShowForm(false);
+      resetAnnouncementForm();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "حدث خطأ");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditAnnouncement = (a: any) => {
+    setEditingId(a._id);
+    setForm({
+      title: a.title ?? "",
+      content: a.content ?? "",
+      type: a.type ?? "info",
+      isActive: a.isActive !== false,
+      imageUrl: a.imageUrl ?? "",
+      linkUrl: a.linkUrl ?? "",
+      ctaLabel: a.ctaLabel ?? "",
+      targetAudience: a.targetAudience ?? "all",
+      placement: a.placement ?? "top",
+      priority: a.priority ?? 0,
+      startsAt: toDateInput(a.startsAt),
+      expiresAt: toDateInput(a.expiresAt),
+    });
+    setShowForm(true);
   };
 
   const handleToggle = async (id: any) => {
@@ -1171,6 +1247,20 @@ function AnnouncementsTab() {
   };
   const TYPE_LABELS: Record<string, string> = {
     info: "معلومة", warning: "تحذير", success: "نجاح", promo: "عرض",
+  };
+
+  const AUDIENCE_LABELS: Record<string, string> = {
+    all: "الكل",
+    public: "الجمهور والزوار",
+    pilgrims: "المعتمرون",
+    offices: "المكاتب",
+    drivers: "السائقون",
+    admins: "الإدارة",
+  };
+  const PLACEMENT_LABELS: Record<string, string> = {
+    top: "الشريط العلوي",
+    home: "كارت الصفحة الرئيسية",
+    all: "كل الأماكن",
   };
 
   if (!announcements) return <Spinner />;
@@ -1210,6 +1300,31 @@ function AnnouncementsTab() {
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">الجمهور المستهدف</label>
+              <select value={form.targetAudience} onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value }))} className={inp}>
+                <option value="all">الكل</option>
+                <option value="public">الجمهور والزوار</option>
+                <option value="pilgrims">المعتمرون</option>
+                <option value="offices">المكاتب</option>
+                <option value="drivers">السائقون</option>
+                <option value="admins">الإدارة</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">مكان الظهور</label>
+              <select value={form.placement} onChange={(e) => setForm((f) => ({ ...f, placement: e.target.value }))} className={inp}>
+                <option value="top">الشريط العلوي</option>
+                <option value="home">كارت الصفحة الرئيسية</option>
+                <option value="all">كل الأماكن</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">الأولوية</label>
+              <input type="number" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: Number(e.target.value) }))} className={inp} />
+            </div>
+          </div>
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">المحتوى *</label>
             <textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} rows={3} placeholder="نص الإعلان..." className={`${inp} resize-none`} />
@@ -1224,6 +1339,41 @@ function AnnouncementsTab() {
               <input value={form.linkUrl} onChange={(e) => setForm((f) => ({ ...f, linkUrl: e.target.value }))} placeholder="https://..." className={inp} />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">نص زر الإجراء</label>
+              <input value={form.ctaLabel} onChange={(e) => setForm((f) => ({ ...f, ctaLabel: e.target.value }))} placeholder="احجز الآن / اعرف أكثر" className={inp} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">يبدأ من</label>
+              <input type="datetime-local" value={form.startsAt} onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))} className={inp} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">ينتهي في</label>
+              <input type="datetime-local" value={form.expiresAt} onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))} className={inp} />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-4">
+            <p className="mb-2 text-xs font-black text-emerald-700">معاينة سريعة</p>
+            <div className="rounded-xl bg-white p-3 shadow-sm">
+              <div className="flex items-start gap-3">
+                {form.imageUrl ? (
+                  <img src={form.imageUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-900 text-amber-300"><Megaphone className="h-6 w-6" /></div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                    <span className={`${TYPE_COLORS[form.type] ?? "bg-gray-100 text-gray-600"} rounded-full px-2 py-0.5`}>{TYPE_LABELS[form.type] ?? form.type}</span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">{AUDIENCE_LABELS[form.targetAudience]}</span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">{PLACEMENT_LABELS[form.placement]}</span>
+                  </div>
+                  <p className="mt-2 font-black text-gray-900">{form.title || "عنوان الإعلان"}</p>
+                  <p className="mt-1 text-sm leading-6 text-gray-600">{form.content || "نص الإعلان يظهر هنا قبل النشر."}</p>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="w-4 h-4 accent-emerald-600" />
@@ -1231,11 +1381,11 @@ function AnnouncementsTab() {
             </label>
           </div>
           <div className="flex gap-3">
-            <button onClick={handleCreate} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+            <button onClick={handleSaveAnnouncement} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? "جاري الحفظ..." : "نشر الإعلان"}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-sm hover:bg-gray-200 transition-colors">
+            <button onClick={() => { setShowForm(false); resetAnnouncementForm(); }} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-sm hover:bg-gray-200 transition-colors">
               إلغاء
             </button>
           </div>
@@ -1246,7 +1396,7 @@ function AnnouncementsTab() {
       {announcements.length === 0 ? (
         <Empty icon={<Megaphone className="w-12 h-12 text-gray-200" />} text="لا توجد إعلانات" />
       ) : announcements.map((a: any) => (
-        <div key={a._id} className={`bg-white rounded-2xl shadow-sm border p-5 ${a.isActive ? "border-emerald-100" : "border-gray-100 opacity-70"}`}>
+        <div key={a._id} className={`bg-white rounded-2xl shadow-sm border p-5 ${a.isActive !== false ? "border-emerald-100" : "border-gray-100 opacity-70"}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -1254,21 +1404,35 @@ function AnnouncementsTab() {
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${TYPE_COLORS[a.type] ?? "bg-gray-100 text-gray-600"}`}>
                   {TYPE_LABELS[a.type] ?? a.type}
                 </span>
-                {a.isActive ? (
+                {a.isActive !== false ? (
                   <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">نشط</span>
                 ) : (
                   <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-full">موقوف</span>
                 )}
               </div>
               <p className="text-sm text-gray-600 leading-relaxed">{a.content}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 font-bold text-gray-600">{AUDIENCE_LABELS[a.targetAudience ?? "all"] ?? a.targetAudience}</span>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 font-bold text-gray-600">{PLACEMENT_LABELS[a.placement ?? "top"] ?? a.placement}</span>
+                <span className="text-gray-400">الأولوية: {a.priority ?? 0}</span>
+                {a.startsAt && <span className="text-gray-400">يبدأ: {new Date(a.startsAt).toLocaleString("ar-SA")}</span>}
+                {a.expiresAt && <span className="text-gray-400">ينتهي: {new Date(a.expiresAt).toLocaleString("ar-SA")}</span>}
+              </div>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
-                onClick={() => handleToggle(a._id)}
-                className={`p-2 rounded-lg transition-colors ${a.isActive ? "bg-amber-50 text-amber-600 hover:bg-amber-100" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}
-                title={a.isActive ? "إيقاف" : "تفعيل"}
+                onClick={() => handleEditAnnouncement(a)}
+                className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                title="تعديل"
               >
-                {a.isActive ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleToggle(a._id)}
+                className={`p-2 rounded-lg transition-colors ${a.isActive !== false ? "bg-amber-50 text-amber-600 hover:bg-amber-100" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}
+                title={a.isActive !== false ? "إيقاف" : "تفعيل"}
+              >
+                {a.isActive !== false ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
               </button>
               <button onClick={() => handleDelete(a._id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
                 <Trash2 className="w-4 h-4" />

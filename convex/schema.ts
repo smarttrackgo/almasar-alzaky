@@ -163,8 +163,13 @@ const applicationTables = {
     isActive: v.optional(v.boolean()),
     imageUrl: v.optional(v.string()),
     linkUrl: v.optional(v.string()),
+    ctaLabel: v.optional(v.string()),
+    targetAudience: v.optional(v.string()),
+    placement: v.optional(v.string()),
     priority: v.optional(v.number()),
+    startsAt: v.optional(v.number()),
     expiresAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
   }),
 
   companions: defineTable({
