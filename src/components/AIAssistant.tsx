@@ -12,7 +12,20 @@ interface Message {
   timestamp: number;
 }
 
-export default function AIAssistant({ navigate }: { navigate: (p: any) => void }) {
+export default function AIAssistant({
+  navigate,
+  visitorMode = false,
+  pageName,
+}: {
+  navigate: (p: any) => void;
+  visitorMode?: boolean;
+  pageName?: string;
+}) {
+  const shouldShowIntro = visitorMode && pageName === "home";
+  const [introVisible, setIntroVisible] = useState(() => {
+    if (!shouldShowIntro) return false;
+    return sessionStorage.getItem("smartAssistantIntroSeen") !== "1";
+  });
   const [open, setOpen]           = useState(false);
   const [input, setInput]         = useState("");
   const [loading, setLoading]     = useState(false);
@@ -32,6 +45,20 @@ export default function AIAssistant({ navigate }: { navigate: (p: any) => void }
     ?? "مرحباً! أنا مساعدك الذكي في المسار الذكي 🕌\n\nيمكنني مساعدتك في:\n• اختيار أفضل برنامج عمرة\n• معرفة أرخص أوقات السفر\n• الإجابة على أسئلتك عن المناسك\n\nكيف يمكنني مساعدتك؟";
 
   const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    if (!shouldShowIntro) {
+      setIntroVisible(false);
+      return;
+    }
+    if (sessionStorage.getItem("smartAssistantIntroSeen") === "1") return;
+    setIntroVisible(true);
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem("smartAssistantIntroSeen", "1");
+      setIntroVisible(false);
+    }, 60_000);
+    return () => window.clearTimeout(timer);
+  }, [shouldShowIntro]);
 
   // تحديث رسالة الترحيب عند تغيير الإعدادات
   useEffect(() => {
@@ -80,6 +107,20 @@ export default function AIAssistant({ navigate }: { navigate: (p: any) => void }
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
+
+    const loginIntent = /حجز|احجز|حجوز|برامج|برنامج|باقة|عروض|book|booking|package|program/i.test(content);
+    if (visitorMode && loginIntent) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "أهلاً بك. أقدر أساعدك في اختيار البرنامج المناسب، لكن عرض البرامج والحجز يحتاج تسجيل الدخول أولاً حتى نحفظ بياناتك وتظهر لك الأسعار والحجوزات بشكل صحيح.\n\nاضغط تسجيل الدخول ثم ارجع لي، وسأكمل معك خطوة بخطوة.",
+          timestamp: Date.now(),
+        },
+      ]);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -115,18 +156,81 @@ export default function AIAssistant({ navigate }: { navigate: (p: any) => void }
     <>
       {/* ── Floating Button ── */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-2xl shadow-purple-500/40 flex items-center justify-center hover:scale-110 transition-all duration-300 group"
-        >
-          <Bot className="w-6 h-6 group-hover:scale-110 transition-transform" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-            <Sparkles className="w-2.5 h-2.5 text-amber-900" />
-          </span>
-          <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-            مساعد AI
-          </span>
-        </button>
+        introVisible ? (
+          <div className="smart-ai-intro fixed left-4 bottom-24 z-40 w-[360px] max-w-[calc(100vw-32px)]" dir="rtl">
+            <div className="relative rounded-[28px] border border-white/25 bg-emerald-950/72 p-4 text-white shadow-2xl shadow-emerald-950/30 backdrop-blur-xl">
+              <button
+                onClick={() => {
+                  sessionStorage.setItem("smartAssistantIntroSeen", "1");
+                  setIntroVisible(false);
+                }}
+                className="absolute left-3 top-3 rounded-full bg-white/10 p-1.5 text-white/70 transition hover:bg-white/20 hover:text-white"
+                aria-label="إخفاء المساعد"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="flex items-end gap-4">
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem("smartAssistantIntroSeen", "1");
+                    setIntroVisible(false);
+                    setOpen(true);
+                  }}
+                  className="smart-ai-avatar relative h-28 w-24 flex-shrink-0"
+                  aria-label="فتح المساعد الذكي"
+                >
+                  <span className="smart-ai-halo" />
+                  <span className="smart-ai-body">
+                    <Bot className="h-9 w-9 text-emerald-950" />
+                  </span>
+                  <span className="smart-ai-hand" />
+                </button>
+                <div className="min-w-0 flex-1 pb-2">
+                  <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-300 px-3 py-1 text-[11px] font-black text-emerald-950">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    مساعد المسار الذكي
+                  </div>
+                  <h3 className="text-lg font-black leading-7">أهلاً، أنا هنا لمساعدتك</h3>
+                  <p className="mt-1 text-sm leading-6 text-emerald-50/85">
+                    اسألني عن العمرة، أو اضغط هنا وابدأ المحادثة. للحجز أو عرض البرامج سأطلب منك تسجيل الدخول أولاً.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem("smartAssistantIntroSeen", "1");
+                        setIntroVisible(false);
+                        setOpen(true);
+                      }}
+                      className="rounded-xl bg-white px-4 py-2 text-xs font-black text-emerald-900 transition hover:bg-emerald-50"
+                    >
+                      ابدأ المحادثة
+                    </button>
+                    <button
+                      onClick={() => navigate({ name: "signin" })}
+                      className="rounded-xl border border-white/25 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/10"
+                    >
+                      تسجيل الدخول
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setOpen(true)}
+            className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-2xl shadow-purple-500/40 flex items-center justify-center hover:scale-110 transition-all duration-300 group"
+            aria-label="فتح مساعد AI"
+          >
+            <Bot className="w-6 h-6 group-hover:scale-110 transition-transform" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+              <Sparkles className="w-2.5 h-2.5 text-amber-900" />
+            </span>
+            <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              مساعد AI
+            </span>
+          </button>
+        )
       )}
 
       {/* ── Chat Window ── */}

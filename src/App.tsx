@@ -264,7 +264,7 @@ function AuthenticatedApp({ page, navigate, goBack, canGoBack, menuOpen, setMenu
         <FloatingSupportBtn navigate={navigate} />
       )}
       {(user as any)?.accountType === "pilgrim" && page.name !== "admin" && page.name !== "office-dashboard" && (
-        <AIAssistant navigate={navigate} />
+        <AIAssistant navigate={navigate} pageName={page.name} />
       )}
       <PWAInstallBanner />
       {showPushPrompt && (
@@ -479,6 +479,7 @@ function AppShell() {
           </main>
           {page.name !== "quran" && <Footer navigate={navigate} />}
           {page.name !== "quran" && <FloatingQuranBtn navigate={navigate} />}
+          {page.name !== "quran" && <AIAssistant navigate={navigate} visitorMode pageName={page.name} />}
           <Toaster position="top-center" richColors />
         </div>
       </Unauthenticated>
