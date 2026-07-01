@@ -3460,6 +3460,7 @@ function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
 /* ── Admin Statements Tab ── */
 function AdminStatementsTab() {
   const offices = useQuery(api.admin.getAllOffices);
+  const bookings = useQuery(api.admin.getAllBookings);
 
   const [filterOffice, setFilterOffice] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -3468,16 +3469,8 @@ function AdminStatementsTab() {
   const [printMode, setPrintMode]       = useState<"statement" | "platform_invoices" | "office_invoices">("statement");
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
-  const officeId = filterOffice !== "all" ? filterOffice as any : undefined;
   const dfMs     = dateFrom ? new Date(dateFrom).getTime() : undefined;
   const dtMs     = dateTo   ? new Date(dateTo).setHours(23, 59, 59, 999) : undefined;
-
-  const data = useQuery(api.commissions.adminStatement, {
-    officeId,
-    dateFrom: dfMs,
-    dateTo:   dtMs as number | undefined,
-    status:   filterStatus !== "all" ? filterStatus : undefined,
-  });
 
   const COMM_STATUS: Record<string, { label: string; cls: string }> = {
     pending:       { label: "معلقة",       cls: "bg-amber-100 text-amber-700" },
@@ -3495,12 +3488,81 @@ function AdminStatementsTab() {
 
   const inp = "w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all";
 
-  const rows    = data?.rows ?? [];
-  const summary = data?.summary;
   const splitVat = (amount: number, rate = 15) => {
     const taxableAmount = Math.round((amount || 0) / (1 + rate / 100));
     return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
   };
+  const rows = (bookings ?? [])
+    .map((b: any) => {
+      const officeBaseAmount = b.officeBaseAmount ?? b.totalPrice ?? 0;
+      const passengerFeeAmount = b.passengerFeeAmount ?? Math.max(0, (b.totalPrice ?? 0) - officeBaseAmount);
+      const commissionAmount = b.commissionAmount ?? 0;
+      const commissionRate = b.commissionRate ?? 0;
+      const platformRevenue = b.platformRevenue ?? (passengerFeeAmount + commissionAmount);
+      const netAmount = b.netAmount ?? Math.max(0, officeBaseAmount - commissionAmount);
+      const commissionStatus = b.status === "cancelled"
+        ? "cancelled"
+        : commissionAmount > 0
+          ? ((b as any).commissionStatus ?? "pending")
+          : "no_commission";
+      const officeTax = splitVat(b.totalPrice ?? officeBaseAmount, 15);
+      const platformTax = splitVat(platformRevenue, 15);
+
+      return {
+        bookingId: b._id,
+        bookingRef: b.bookingReference,
+        bookingDate: b._creationTime,
+        bookingStatus: b.status,
+        passengerName: b.leadPassengerName,
+        passengerPhone: b.leadPassengerPhone,
+        passengerIdNumber: b.leadPassengerIdNumber,
+        adultsCount: b.adultsCount,
+        childrenCount: b.childrenCount ?? 0,
+        passengerCount: (b.adultsCount ?? 1) + (b.childrenCount ?? 0),
+        officeName: b.office?.name ?? "—",
+        officeId: b.officeId,
+        packageTitle: b.package?.title ?? "—",
+        bookingAmount: officeBaseAmount,
+        officeBaseAmount,
+        passengerFeeRate: b.passengerFeeRate ?? 0,
+        passengerFeeAmount,
+        pilgrimTotalAmount: b.totalPrice ?? officeBaseAmount,
+        platformRevenue,
+        taxRate: 15,
+        officeTaxableAmount: officeTax.taxableAmount,
+        officeVatAmount: officeTax.vatAmount,
+        platformTaxableAmount: platformTax.taxableAmount,
+        platformVatAmount: platformTax.vatAmount,
+        platformInvoiceNo: `MSR-TAX-${b.bookingReference}`,
+        officeInvoiceNo: `OFF-TAX-${b.bookingReference}`,
+        officeCommercialRegister: b.office?.commercialRegister,
+        commissionRate,
+        commissionAmount,
+        netAmount,
+        commissionStatus,
+        settledAt: (b as any).settledAt,
+      };
+    })
+    .filter((r: any) => (filterOffice === "all" ? true : r.officeId === filterOffice))
+    .filter((r: any) => (dfMs ? r.bookingDate >= dfMs : true))
+    .filter((r: any) => (dtMs ? r.bookingDate <= dtMs : true))
+    .filter((r: any) => (filterStatus === "all" ? r.bookingStatus !== "cancelled" : r.commissionStatus === filterStatus));
+  const summary = bookings === undefined
+    ? undefined
+    : {
+        totalRows: rows.length,
+        totalBookingAmount: rows.reduce((s: number, r: any) => s + (r.bookingAmount ?? 0), 0),
+        totalPilgrimAmount: rows.reduce((s: number, r: any) => s + (r.pilgrimTotalAmount ?? r.bookingAmount ?? 0), 0),
+        totalPassengerFees: rows.reduce((s: number, r: any) => s + (r.passengerFeeAmount ?? 0), 0),
+        totalCommission: rows.reduce((s: number, r: any) => s + (r.commissionAmount ?? 0), 0),
+        totalPlatformRevenue: rows.reduce((s: number, r: any) => s + (r.platformRevenue ?? r.commissionAmount ?? 0), 0),
+        totalOfficeVat: rows.reduce((s: number, r: any) => s + (r.officeVatAmount ?? 0), 0),
+        totalPlatformVat: rows.reduce((s: number, r: any) => s + (r.platformVatAmount ?? 0), 0),
+        totalVat: rows.reduce((s: number, r: any) => s + (r.officeVatAmount ?? 0) + (r.platformVatAmount ?? 0), 0),
+        totalNet: rows.reduce((s: number, r: any) => s + (r.netAmount ?? 0), 0),
+        settledCommission: rows.filter((r: any) => r.commissionStatus === "settled").reduce((s: number, r: any) => s + (r.commissionAmount ?? 0), 0),
+        pendingCommission: rows.filter((r: any) => r.commissionStatus === "pending").reduce((s: number, r: any) => s + (r.commissionAmount ?? 0), 0),
+      };
   const bookingGross = (r: any) => r.pilgrimTotalAmount ?? r.officeBaseAmount ?? r.bookingAmount ?? 0;
   const bookingPassengerCount = (r: any) => Math.max(1, Number(r.passengerCount ?? r.adultsCount ?? 1));
   const bookingPassengers = (r: any) => {
@@ -3848,7 +3910,7 @@ function AdminStatementsTab() {
   };
 
   const handlePrintByFilter = () => {
-    if (data === undefined) {
+    if (bookings === undefined) {
       toast.error("البيانات ما زالت قيد التحميل");
       return;
     }
@@ -4017,7 +4079,7 @@ function AdminStatementsTab() {
           </div>
         )}
 
-        {data === undefined ? (
+        {bookings === undefined ? (
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
           </div>
