@@ -88,7 +88,11 @@ export function SignInForm() {
   const cleanupDeletedAccount = async (formData: FormData) => {
     const email = String(formData.get("email") ?? "").trim();
     if (!email) return;
-    await cleanupDeletedAccountAuthByEmail({ email });
+    try {
+      await cleanupDeletedAccountAuthByEmail({ email });
+    } catch (error) {
+      console.warn("Skipped deleted-account auth cleanup before sign-in.", error);
+    }
   };
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
