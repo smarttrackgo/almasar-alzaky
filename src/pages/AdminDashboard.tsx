@@ -25,6 +25,7 @@ import {
   Headphones, Send, MessageCircle, CheckCheck, Circle,
   UserCircle, XCircle, RotateCcw,
   Bot, Sparkles, Brain, Zap, HelpCircle, Star, RotateCw,
+  Printer,
   Smartphone, Wallet,
 } from "lucide-react";
 import { Id } from "../../convex/_generated/dataModel";
