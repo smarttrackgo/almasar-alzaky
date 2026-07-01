@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Package, CalendarCheck, PlusCircle, MapPin, BadgeCheck,
   TrendingUp, Users, Banknote, Clock, Filter, X, FileText, Printer,
   CheckCircle, Building2,
-  MessageCircle, Send, Phone, Copy, History, ChevronDown, ChevronUp,
+  MessageCircle, Send, Phone, Copy, History, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   Bell, CheckCheck, AlertCircle, Edit3,
   Smartphone, BarChart3, RefreshCw, Zap,
   Mail, Key, ShieldCheck, XCircle, Loader2,
@@ -80,6 +80,7 @@ type Tab = "overview" | "packages" | "bookings" | "trips" | "whatsapp" | "email"
 export default function OfficeDashboard({ navigate }: { navigate: (p: Page) => void }) {
   const myOffice = useQuery(api.offices.getMyOffice);
   const [tab, setTab] = useState<Tab>("overview");
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   if (myOffice === undefined) {
     return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /></div>;
@@ -99,6 +100,16 @@ export default function OfficeDashboard({ navigate }: { navigate: (p: Page) => v
     { key: "add-package",  label: "إضافة برنامج",       Icon: PlusCircle },
     { key: "reviews",      label: "التقييمات",           Icon: Star },
   ];
+
+  const scrollTabs = (direction: "left" | "right") => {
+    const element = tabsRef.current;
+    if (!element) return;
+    const amount = Math.min(560, Math.max(300, element.clientWidth * 0.6));
+    element.scrollBy({
+      left: direction === "left" ? -amount : amount,
+      behavior: "smooth",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -121,21 +132,66 @@ export default function OfficeDashboard({ navigate }: { navigate: (p: Page) => v
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-gray-200 sticky top-16 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto">
-          {TABS.map(({ key, label, Icon }) => (
+      <div className="sticky top-16 z-40 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/95" dir="rtl">
+        <div className="mx-auto max-w-7xl px-3 py-3 sm:px-4">
+          <div className="flex items-center gap-2">
             <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-5 py-4 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                tab === key ? "border-emerald-600 text-emerald-700" : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              type="button"
+              onClick={() => scrollTabs("right")}
+              aria-label="تحريك التبويبات يمين"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
-              <Icon className="w-4 h-4" />
-              {label}
-              {key === "whatsapp" && <WhatsAppTabBadge officeId={myOffice._id} />}
+              <ChevronRight className="h-5 w-5" />
             </button>
-          ))}
+
+            <div ref={tabsRef} className="admin-tabs-scroll min-w-0 flex-1 overflow-x-auto scroll-smooth">
+              <div className="flex w-max items-stretch gap-2 px-1">
+                {TABS.map(({ key, label, Icon }) => {
+                  const active = tab === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      title={label}
+                      onClick={() => setTab(key)}
+                      className={`group relative flex min-h-[82px] min-w-[92px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-2.5 text-center transition-all sm:min-w-[112px] ${
+                        active
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm dark:border-emerald-400/70 dark:bg-emerald-500/15 dark:text-emerald-100"
+                          : "border-gray-200 bg-white text-gray-500 hover:border-emerald-200 hover:bg-emerald-50/70 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400/50 dark:hover:bg-emerald-500/10"
+                      }`}
+                    >
+                      <span
+                        className={`grid h-9 w-9 place-items-center rounded-xl transition ${
+                          active
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-200 dark:bg-emerald-500 dark:shadow-none"
+                            : "bg-gray-100 text-gray-500 group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:bg-slate-800 dark:text-slate-300"
+                        }`}
+                      >
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="block max-w-[88px] truncate text-[11px] font-black leading-4 sm:max-w-[104px] sm:text-xs">
+                        {label}
+                      </span>
+                      {key === "whatsapp" && (
+                        <span className="absolute left-2 top-2">
+                          <WhatsAppTabBadge officeId={myOffice._id} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollTabs("left")}
+              aria-label="تحريك التبويبات شمال"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 

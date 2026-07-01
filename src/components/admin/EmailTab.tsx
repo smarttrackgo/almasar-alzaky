@@ -89,7 +89,7 @@ export default function EmailTab() {
 
       {/* تبويبات داخلية */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-100 overflow-x-auto">
+        <div className="admin-tabs-scroll flex border-b border-gray-100 overflow-x-auto">
           {[
             { key: "overview", label: "نظرة عامة",    Icon: BarChart3 },
             { key: "logs",     label: "سجل الإيميلات", Icon: Inbox },
@@ -98,7 +98,7 @@ export default function EmailTab() {
             <button
               key={key}
               onClick={() => setActiveSection(key as any)}
-              className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex min-w-[138px] items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 activeSection === key
                   ? "border-blue-600 text-blue-700 bg-blue-50/50"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"

@@ -256,12 +256,12 @@ export default function ProfilePage({ navigate }: { navigate: (p: Page) => void 
       <div className="max-w-4xl mx-auto px-4 -mt-10 pb-16">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           {/* Tab bar */}
-          <div className="flex border-b border-gray-100 overflow-x-auto">
+          <div className="admin-tabs-scroll flex border-b border-gray-100 overflow-x-auto">
             {TABS.map(({ key, label, Icon }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`flex items-center gap-2 px-5 py-4 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap flex-1 justify-center ${
+                className={`flex min-w-[132px] items-center justify-center gap-2 px-5 py-4 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                   tab === key
                     ? "border-emerald-600 text-emerald-700 bg-emerald-50/50"
                     : "border-transparent text-gray-500 hover:text-gray-700"
