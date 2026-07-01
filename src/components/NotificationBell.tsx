@@ -64,7 +64,7 @@ export default function NotificationBell({ navigate }: { navigate: (p: Page) => 
   const count = unreadCount ?? 0;
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative z-[1100]" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative p-2 rounded-xl hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 transition-colors"
@@ -79,7 +79,7 @@ export default function NotificationBell({ navigate }: { navigate: (p: Page) => 
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute start-0 top-full mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-2xl border border-gray-100 z-[1200] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gradient-to-l from-emerald-50 to-white">
             <div className="flex items-center gap-2">
               <Bell className="w-4 h-4 text-emerald-600" />

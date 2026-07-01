@@ -48,7 +48,7 @@ export function SignOutButton() {
   const initials = email.split("@")[0].slice(0, 2).toUpperCase();
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative z-[1100]" ref={containerRef}>
       <button
         type="button"
         onClick={() => {
@@ -86,7 +86,7 @@ export function SignOutButton() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-72 rounded-xl bg-white shadow-xl border border-gray-200 z-50 overflow-hidden"
+          className="absolute end-0 mt-2 w-[min(18rem,calc(100vw-1.5rem))] rounded-xl bg-white shadow-2xl border border-gray-200 z-[1200] overflow-hidden"
         >
           <div className="p-4 border-b border-gray-100">
             <div className="text-xs uppercase tracking-wide text-gray-500">

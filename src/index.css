@@ -381,7 +381,7 @@ button {
 .smart-navbar {
   position: sticky;
   isolation: isolate;
-  overflow: hidden;
+  overflow: visible;
   background:
     linear-gradient(135deg, rgba(6, 78, 59, .58), rgba(4, 120, 87, .42) 48%, rgba(15, 23, 42, .34));
   border-color: rgba(255, 255, 255, .13);
@@ -406,6 +406,8 @@ button {
   filter: brightness(1.12) saturate(1.22) drop-shadow(0 8px 16px rgba(0, 0, 0, .18)) !important;
 }
 .smart-mobile-menu {
+  position: relative;
+  z-index: 1001;
   animation: smartMenuDrop .42s cubic-bezier(.16, 1, .3, 1) both;
   transform-origin: top center;
 }

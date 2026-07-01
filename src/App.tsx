@@ -536,9 +536,9 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
   const pageLabel = PAGE_LABELS[page.name] ?? t("nav.back");
 
   return (
-    <header className={`smart-navbar sticky top-0 z-50 border-b backdrop-blur-xl transition-all duration-300 ${menuOpen ? "smart-navbar-open" : ""}`}>
+    <header className={`smart-navbar sticky top-0 z-[1000] border-b backdrop-blur-xl transition-all duration-300 ${menuOpen ? "smart-navbar-open" : ""}`}>
       {menuOpen && (
-        <div className="smart-menu-bus lg:hidden" aria-hidden="true">
+        <div className="smart-menu-bus 2xl:hidden" aria-hidden="true">
           <div className="smart-menu-bus__body">
             <span />
             <span />
@@ -577,7 +577,7 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
           )}
         </div>
 
-        <nav className="hidden lg:flex items-center gap-0.5">
+        <nav className="hidden 2xl:flex flex-1 min-w-0 items-center justify-center gap-0.5">
           <NavBtn active={page.name === "home"}      onClick={() => navigate({ name: "home" })}>{t("nav.home")}</NavBtn>
           <NavBtn active={page.name === "about"}     onClick={() => navigate({ name: "about" })}>{t("nav.about")}</NavBtn>
           <NavBtn active={page.name === "quran"}     onClick={() => navigate({ name: "quran" })}>{t("nav.quran")}</NavBtn>
@@ -636,7 +636,7 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
             </button>
           </Unauthenticated>
           <button
-            className="lg:hidden p-2.5 rounded-2xl border border-white/15 bg-white/10 text-white shadow-lg shadow-emerald-950/15 transition-all hover:bg-white/15"
+            className="2xl:hidden p-2.5 rounded-2xl border border-white/15 bg-white/10 text-white shadow-lg shadow-emerald-950/15 transition-all hover:bg-white/15"
             onClick={() => setMenuOpen(!menuOpen)}
               aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
           >
@@ -646,7 +646,7 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
       </div>
 
       {menuOpen && (
-        <div className="smart-mobile-menu lg:hidden border-t border-white/10 bg-emerald-950/75 px-4 py-3 space-y-1 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl">
+        <div className="smart-mobile-menu 2xl:hidden border-t border-white/10 bg-emerald-950/75 px-4 py-3 space-y-1 shadow-2xl shadow-emerald-950/20 backdrop-blur-2xl">
           <Unauthenticated>
             <div className="pb-2">
               <LanguageSelector compact />
@@ -700,7 +700,7 @@ function NavBtn({ children, onClick, active }: { children: React.ReactNode; onCl
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+      className={`max-w-[9.5rem] whitespace-nowrap rounded-xl px-2.5 py-2 text-xs font-semibold leading-none transition-all 2xl:px-3 2xl:text-sm ${
         active ? "bg-white text-emerald-900 shadow-sm" : "text-white/72 hover:text-white hover:bg-white/10"
       }`}
     >
