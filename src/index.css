@@ -18,8 +18,64 @@ body {
   direction: rtl;
 }
 
+html.dark body {
+  color: #e5e7eb;
+  background: #020617;
+}
+
 html[dir="ltr"] body {
   direction: ltr;
+}
+
+html.dark .home-page {
+  background: #020617 !important;
+}
+
+html.dark .home-page section.bg-white,
+html.dark .home-page .bg-white {
+  background-color: #0f172a !important;
+}
+
+html.dark .home-page .bg-gray-50,
+html.dark .home-page .from-gray-50 {
+  background-color: #020617 !important;
+}
+
+html.dark .home-page .text-emerald-900,
+html.dark .home-page .text-gray-900,
+html.dark .home-page .text-gray-800,
+html.dark .home-page .text-gray-700,
+html.dark .home-page .text-gray-600 {
+  color: #f8fafc !important;
+}
+
+html.dark .home-page .text-gray-500,
+html.dark .home-page .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+html.dark .home-page .border-gray-100,
+html.dark .home-page .border-gray-200 {
+  border-color: rgba(148, 163, 184, .22) !important;
+}
+
+html.dark .home-page .shadow-sm,
+html.dark .home-page .shadow-md,
+html.dark .home-page .shadow-lg,
+html.dark .home-page .shadow-2xl {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .35) !important;
+}
+
+html.dark .home-page input,
+html.dark .home-page select {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: rgba(148, 163, 184, .25) !important;
+}
+
+html.dark .home-page option {
+  background: #0f172a;
+  color: #f8fafc;
 }
 
 button, a {

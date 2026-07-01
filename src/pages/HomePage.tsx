@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
 import PackageCard from "../components/PackageCard";
 import { SAUDI_CITIES } from "../lib/saudiCities";
+import { useI18n } from "../lib/i18n";
 import {
   Search, MapPin, SlidersHorizontal, ShieldCheck, BadgeDollarSign,
   HeartHandshake, BookOpen, BookMarked, Map, ChevronLeft, Star, Award, Clock, Compass,
@@ -15,61 +16,6 @@ const DEFAULT_BG_VIDEO = "https://videos.pexels.com/video-files/19820804/1982080
 const DEFAULT_KAABA_IMG   = "https://polished-pony-114.convex.cloud/api/storage/f8e21276-c3a4-4933-98bc-c719fc43ba8c";
 const DEFAULT_MADINAH_IMG = "https://polished-pony-114.convex.cloud/api/storage/22aaba82-1d53-4f51-b06a-98593b6f4678";
 
-const TYPES = [
-  { value: "",         label: "الكل" },
-  { value: "economy",  label: "اقتصادي" },
-  { value: "luxury",   label: "فاخر" },
-  { value: "ramadan",  label: "رمضان" },
-  { value: "family",   label: "عائلي" },
-];
-
-const SPIRITUAL_SERVICES: Array<{
-  icon: React.ElementType;
-  title: string;
-  desc: string;
-  pageName: "pilgrim-guide" | "quran" | "adhkar" | "umrah-map";
-  gradient: string;
-  badge: string;
-  iconBg: string;
-}> = [
-  {
-    icon: Compass,
-    title: "دليل المعتمر",
-    desc: "مناسك العمرة، الأذكار، مواقيت الصلاة، القبلة، بث الحرمين، وسبحة محفوظة في مكان واحد",
-    pageName: "pilgrim-guide",
-    gradient: "from-stone-800 to-emerald-950",
-    badge: "مركز الرحلة",
-    iconBg: "bg-amber-600/30",
-  },
-  {
-    icon: BookOpen,
-    title: "المصحف الشريف",
-    desc: "استمع للقرآن الكريم بصوت أشهر القراء من مصر والسعودية والكويت",
-    pageName: "quran",
-    gradient: "from-emerald-700 to-emerald-900",
-    badge: "10 قراء",
-    iconBg: "bg-emerald-600/30",
-  },
-  {
-    icon: BookMarked,
-    title: "الأذكار والأدعية",
-    desc: "أذكار الصباح والمساء وأدعية العمرة والمناسك مرتبة بشكل جميل",
-    pageName: "adhkar",
-    gradient: "from-amber-700 to-amber-900",
-    badge: "5 أقسام",
-    iconBg: "bg-amber-600/30",
-  },
-  {
-    icon: Map,
-    title: "خريطة العمرة",
-    desc: "تعرف على المشاعر المقدسة وخطوات أداء مناسك العمرة بشكل تفاعلي",
-    pageName: "umrah-map",
-    gradient: "from-blue-700 to-blue-900",
-    badge: "تفاعلية",
-    iconBg: "bg-blue-600/30",
-  },
-];
-
 const TESTIMONIALS = [
   { name: "أحمد الغامدي",  city: "الرياض", rating: 5, text: "تجربة رائعة، حجزت عمرتي بكل سهولة وكان المكتب محترفاً جداً. أنصح الجميع بالمنصة." },
   { name: "فاطمة العتيبي", city: "جدة",    rating: 5, text: "المنصة سهلة الاستخدام والأسعار منافسة. سافرت مع عائلتي وكانت رحلة لا تُنسى." },
@@ -77,6 +23,7 @@ const TESTIMONIALS = [
 ];
 
 export default function HomePage({ navigate }: { navigate: (p: Page) => void }) {
+  const { t, language, dir } = useI18n();
   const [type, setType]   = useState("");
   const [city, setCity]   = useState("");
   const [search, setSearch] = useState("");
@@ -100,14 +47,70 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
     return () => clearInterval(timer);
   }, []);
 
-  // تنسيق الوقت والتاريخ بالعربية
-  const timeStr = now.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = now.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const locale = language === "en" ? "en-US" : language === "ur" ? "ur-PK" : "ar-SA";
+  const timeStr = now.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = now.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  const types = [
+    { value: "",         label: t("home.type.all") },
+    { value: "economy",  label: t("home.type.economy") },
+    { value: "luxury",   label: t("home.type.luxury") },
+    { value: "ramadan",  label: t("home.type.ramadan") },
+    { value: "family",   label: t("home.type.family") },
+  ];
+
+  const spiritualServices: Array<{
+    icon: React.ElementType;
+    title: string;
+    desc: string;
+    pageName: "pilgrim-guide" | "quran" | "adhkar" | "umrah-map";
+    gradient: string;
+    badge: string;
+    iconBg: string;
+  }> = [
+    {
+      icon: Compass,
+      title: t("nav.guide"),
+      desc: t("home.spiritual.guide.desc"),
+      pageName: "pilgrim-guide",
+      gradient: "from-stone-800 to-emerald-950",
+      badge: t("home.spiritual.guide.badge"),
+      iconBg: "bg-amber-600/30",
+    },
+    {
+      icon: BookOpen,
+      title: t("nav.quran"),
+      desc: t("home.spiritual.quran.desc"),
+      pageName: "quran",
+      gradient: "from-emerald-700 to-emerald-900",
+      badge: t("home.spiritual.quran.badge"),
+      iconBg: "bg-emerald-600/30",
+    },
+    {
+      icon: BookMarked,
+      title: t("nav.adhkar"),
+      desc: t("home.spiritual.adhkar.desc"),
+      pageName: "adhkar",
+      gradient: "from-amber-700 to-amber-900",
+      badge: t("home.spiritual.adhkar.badge"),
+      iconBg: "bg-amber-600/30",
+    },
+    {
+      icon: Map,
+      title: t("nav.umrahMap"),
+      desc: t("home.spiritual.map.desc"),
+      pageName: "umrah-map",
+      gradient: "from-blue-700 to-blue-900",
+      badge: t("home.spiritual.map.badge"),
+      iconBg: "bg-blue-600/30",
+    },
+  ];
 
   // ── قيم ديناميكية مع fallback ──
-  const heroTitle       = siteSettings?.hero_title      || "رحلتك إلى بيت الله الحرام";
-  const heroSubtitle    = siteSettings?.hero_subtitle   || "اختر من أفضل برامج العمرة المعتمدة بكل سهولة وأمان";
-  const appTagline      = siteSettings?.app_tagline     || "منصة حجز العمرة الأولى في المملكة";
+  const useAdminArabic = language === "ar";
+  const heroTitle       = (useAdminArabic && siteSettings?.hero_title)      || t("home.hero.title");
+  const heroSubtitle    = (useAdminArabic && siteSettings?.hero_subtitle)   || t("home.hero.subtitle");
+  const appTagline      = (useAdminArabic && siteSettings?.app_tagline)     || t("home.hero.tagline");
   const heroVideoUrl    = siteSettings?.hero_video_url  || DEFAULT_BG_VIDEO;
   const videoBrightness = siteSettings?.hero_video_brightness
     ? parseFloat(siteSettings.hero_video_brightness)
@@ -115,11 +118,11 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
 
   // ── صور الوجهات المقدسة ──
   const kaabaImg      = siteSettings?.kaaba_image_url   || DEFAULT_KAABA_IMG;
-  const kaabaTitle    = siteSettings?.kaaba_title       || "مكة المكرمة";
-  const kaabaSubtitle = siteSettings?.kaaba_subtitle    || "قبلة المسلمين وأشرف البقاع";
+  const kaabaTitle    = (useAdminArabic && siteSettings?.kaaba_title)       || t("home.kaaba.title");
+  const kaabaSubtitle = (useAdminArabic && siteSettings?.kaaba_subtitle)    || t("home.kaaba.subtitle");
   const madinahImg    = siteSettings?.madinah_image_url || DEFAULT_MADINAH_IMG;
-  const madinahTitle  = siteSettings?.madinah_title     || "المدينة المنورة";
-  const madinahSub    = siteSettings?.madinah_subtitle  || "مدينة النبي ﷺ";
+  const madinahTitle  = (useAdminArabic && siteSettings?.madinah_title)     || t("home.madinah.title");
+  const madinahSub    = (useAdminArabic && siteSettings?.madinah_subtitle)  || t("home.madinah.subtitle");
 
   // ── إحصائيات ──
   const statsPackages = siteSettings?.stats_packages || "+500";
@@ -128,16 +131,16 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
   const statsRating   = siteSettings?.stats_rating   || "4.8";
 
   // ── قسم لماذا نحن ──
-  const whyTitle    = siteSettings?.why_title    || "لماذا المسار الذكي؟";
-  const whySubtitle = siteSettings?.why_subtitle || "نقدم لك تجربة حجز آمنة وموثوقة";
+  const whyTitle    = (useAdminArabic && siteSettings?.why_title)    || t("home.why.title");
+  const whySubtitle = (useAdminArabic && siteSettings?.why_subtitle) || t("home.why.subtitle");
 
   // ── قسم CTA ──
-  const ctaTitle    = siteSettings?.cta_title    || "ابدأ رحلتك الروحانية اليوم";
-  const ctaSubtitle = siteSettings?.cta_subtitle || "انضم إلى آلاف المعتمرين الذين وثقوا بالمسار الذكي لتنظيم رحلتهم المباركة";
+  const ctaTitle    = (useAdminArabic && siteSettings?.cta_title)    || t("home.cta.title");
+  const ctaSubtitle = (useAdminArabic && siteSettings?.cta_subtitle) || t("home.cta.subtitle");
   const ctaImageUrl = siteSettings?.cta_image_url || "";
 
   return (
-    <div className="bg-gray-50">
+    <div className="home-page bg-gray-50" dir={dir}>
 
       {/* ── Hero ── */}
       <section className="relative h-[88vh] min-h-[580px] flex items-center justify-center overflow-hidden">
@@ -200,7 +203,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                   onChange={(e) => setCity(e.target.value)}
                   className="w-full pr-9 pl-3 py-3 rounded-xl bg-white text-gray-800 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none"
                 >
-                  <option value="">مدينة الانطلاق</option>
+                  <option value="">{t("home.search.departureCity")}</option>
                   {SAUDI_CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -211,7 +214,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                   onChange={(e) => setType(e.target.value)}
                   className="w-full pr-9 pl-3 py-3 rounded-xl bg-white text-gray-800 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 appearance-none"
                 >
-                  {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {types.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </div>
               <div className="relative">
@@ -219,7 +222,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="ابحث عن برنامج..."
+                  placeholder={t("home.search.placeholder")}
                   className="w-full pr-9 pl-3 py-3 rounded-xl bg-white text-gray-800 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
               </div>
@@ -239,10 +242,10 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
       <section className="bg-emerald-800 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-white">
           {[
-            { num: statsPackages, label: "برنامج عمرة" },
-            { num: statsOffices,  label: "مكتب معتمد" },
-            { num: statsPilgrims, label: "معتمر سعيد" },
-            { num: statsRating,   label: "متوسط التقييم" },
+            { num: statsPackages, label: t("home.stats.packages") },
+            { num: statsOffices,  label: t("home.stats.offices") },
+            { num: statsPilgrims, label: t("home.stats.pilgrims") },
+            { num: statsRating,   label: t("home.stats.rating") },
           ].map((s, i) => (
             <div key={i} className={`anim-fade-up d-${(i + 1) * 100}`}>
               <div className="text-3xl font-black gold-light">{s.num}</div>
@@ -259,11 +262,11 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
       <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
           <div>
-            <h2 className="text-3xl font-black text-emerald-900">البرامج المتاحة</h2>
-            <p className="text-gray-500 mt-1">اختر البرنامج المناسب من بين أفضل العروض</p>
+            <h2 className="text-3xl font-black text-emerald-900">{t("home.packages.title")}</h2>
+            <p className="text-gray-500 mt-1">{t("home.packages.subtitle")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {TYPES.map((t) => (
+            {types.map((t) => (
               <button
                 key={t.value}
                 onClick={() => setType(t.value)}
@@ -295,8 +298,8 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
             <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-600 mb-2">لا توجد برامج مطابقة</h3>
-            <p className="text-gray-400 text-sm">جرّب تغيير معايير البحث</p>
+            <h3 className="text-xl font-bold text-gray-600 mb-2">{t("home.packages.emptyTitle")}</h3>
+            <p className="text-gray-400 text-sm">{t("home.packages.emptyText")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -320,18 +323,18 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
             {[
               {
                 Icon: ShieldCheck,
-                title: "مكاتب معتمدة",
-                desc: "جميع المكاتب المعروضة معتمدة ومرخصة من وزارة الحج والعمرة",
+                title: t("home.why.certified.title"),
+                desc: t("home.why.certified.desc"),
               },
               {
                 Icon: BadgeDollarSign,
-                title: "أفضل الأسعار",
-                desc: "نضمن لك أفضل الأسعار مع إمكانية المقارنة بين البرامج المختلفة",
+                title: t("home.why.price.title"),
+                desc: t("home.why.price.desc"),
               },
               {
                 Icon: HeartHandshake,
-                title: "دعم متواصل",
-                desc: "فريق دعم متخصص على مدار الساعة لمساعدتك في رحلتك الروحانية",
+                title: t("home.why.support.title"),
+                desc: t("home.why.support.desc"),
               },
             ].map(({ Icon, title, desc }, i) => (
               <div key={i} className="bg-white/8 backdrop-blur-sm border border-white/10 rounded-2xl p-7 text-center card-lift">
@@ -349,8 +352,8 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
       {/* ── Destinations ── */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-black text-emerald-900 mb-2">الوجهات المقدسة</h2>
-          <p className="text-gray-500 text-sm">رحلة روحانية إلى أقدس البقاع</p>
+          <h2 className="text-3xl font-black text-emerald-900 mb-2">{t("home.destinations.title")}</h2>
+          <p className="text-gray-500 text-sm">{t("home.destinations.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
@@ -379,18 +382,18 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 rounded-full px-5 py-2 mb-5">
               <BookOpen className="w-4 h-4 text-amber-400" />
-              <span className="text-amber-300 text-sm font-semibold">الخدمات الروحانية</span>
+              <span className="text-amber-300 text-sm font-semibold">{t("home.spiritual.badge")}</span>
             </div>
             <h2 className="text-3xl md:text-4xl font-black text-white mb-3">
-              رفيقك الروحاني في كل وقت
+              {t("home.spiritual.title")}
             </h2>
             <p className="text-emerald-300 text-sm max-w-xl mx-auto leading-relaxed">
-              استعد لرحلتك الروحانية مع مجموعة من الأدوات الإسلامية المتكاملة
+              {t("home.spiritual.subtitle")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {SPIRITUAL_SERVICES.map((svc, i) => {
+            {spiritualServices.map((svc, i) => {
               const Icon = svc.icon;
               return (
                 <button
@@ -416,7 +419,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                     <p className="text-white/65 text-sm leading-relaxed mb-5">{svc.desc}</p>
 
                     <div className="flex items-center gap-2 text-white/80 text-sm font-semibold group-hover:text-white transition-colors">
-                      <span>ابدأ الآن</span>
+                      <span>{t("home.spiritual.start")}</span>
                       <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     </div>
                   </div>
@@ -438,12 +441,12 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                 </div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="bg-amber-400/20 text-amber-300 text-xs font-semibold px-3 py-1 rounded-full border border-amber-400/20">
-                    مكة والرياض
+                    {t("home.prayer.badge")}
                   </span>
                 </div>
-                <h3 className="text-xl font-black text-white mb-1">مواقيت الصلاة</h3>
+                <h3 className="text-xl font-black text-white mb-1">{t("home.prayer.title")}</h3>
                 <p className="text-indigo-300 text-sm mb-4 leading-relaxed">
-                  مواقيت دقيقة مع عداد تنازلي وإشعار الأذان التلقائي
+                  {t("home.prayer.desc")}
                 </p>
                 <div className="flex flex-wrap gap-1.5 mb-4">
                   {["🕋 مكة", "🏙️ الرياض"].map((c) => (
@@ -451,7 +454,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                   ))}
                 </div>
                 <div className="flex items-center gap-2 text-indigo-200 text-sm font-semibold group-hover:text-white transition-colors">
-                  <span>عرض المواقيت</span>
+                  <span>{t("home.prayer.cta")}</span>
                   <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -469,19 +472,19 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
                 </div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="bg-emerald-400/20 text-emerald-300 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-400/20">
-                    GPS دقيق
+                    {t("home.qibla.badge")}
                   </span>
                 </div>
-                <h3 className="text-xl font-black text-white mb-1">اتجاه القبلة</h3>
+                <h3 className="text-xl font-black text-white mb-1">{t("home.qibla.title")}</h3>
                 <p className="text-amber-200/70 text-sm mb-4 leading-relaxed">
-                  بوصلة تفاعلية تحدد اتجاه الكعبة المشرفة بدقة من موقعك
+                  {t("home.qibla.desc")}
                 </p>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-3xl">🕋</span>
-                  <span className="text-amber-200/60 text-xs">الكعبة المشرفة • مكة المكرمة</span>
+                  <span className="text-amber-200/60 text-xs">{t("home.qibla.note")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-amber-200 text-sm font-semibold group-hover:text-white transition-colors">
-                  <span>تحديد القبلة</span>
+                  <span>{t("home.qibla.cta")}</span>
                   <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -496,10 +499,10 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-5 py-2 mb-5">
               <Star className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-              <span className="text-emerald-700 text-sm font-semibold">آراء المعتمرين</span>
+              <span className="text-emerald-700 text-sm font-semibold">{t("home.testimonials.badge")}</span>
             </div>
-            <h2 className="text-3xl font-black text-emerald-900 mb-2">ماذا يقول معتمرونا؟</h2>
-            <p className="text-gray-500 text-sm">تجارب حقيقية من معتمرين سعداء</p>
+            <h2 className="text-3xl font-black text-emerald-900 mb-2">{t("home.testimonials.title")}</h2>
+            <p className="text-gray-500 text-sm">{t("home.testimonials.subtitle")}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -562,14 +565,14 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
               onClick={() => navigate({ name: "home" })}
               className="bg-amber-400 hover:bg-amber-300 text-emerald-900 font-black px-8 py-4 rounded-xl transition-all hover:scale-105 shadow-lg shadow-amber-400/30 text-base"
             >
-              استعرض البرامج
+              {t("home.cta.programs")}
             </button>
             <button
               onClick={() => navigate({ name: "quran" })}
               className="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl border border-white/20 transition-all hover:scale-105 text-base flex items-center justify-center gap-2"
             >
               <BookOpen className="w-5 h-5" />
-              افتح المصحف
+              {t("home.cta.quran")}
             </button>
           </div>
         </div>
@@ -580,6 +583,7 @@ export default function HomePage({ navigate }: { navigate: (p: Page) => void }) 
 
 // ── مكوّن شعار رؤية 2030 المستقل ──
 function Vision2030Banner() {
+  const { t, dir } = useI18n();
   return (
     <section className="py-12 px-4 bg-gradient-to-l from-[#0a2240] via-[#0d2d52] to-[#0a2240] relative overflow-hidden">
       {/* زخارف خلفية */}
@@ -610,24 +614,23 @@ function Vision2030Banner() {
           <div className="hidden md:block w-px h-28 bg-gradient-to-b from-transparent via-[#c8a951]/40 to-transparent" />
 
           {/* النص */}
-          <div className="order-2 text-center md:text-right">
+          <div className={`order-2 text-center ${dir === "rtl" ? "md:text-right" : "md:text-left"}`}>
             <div className="inline-flex items-center gap-2 bg-[#c8a951]/15 border border-[#c8a951]/30 rounded-full px-4 py-1.5 mb-4">
               <div className="w-1.5 h-1.5 rounded-full bg-[#c8a951] animate-pulse" />
-              <span className="text-[#c8a951] text-xs font-bold tracking-wide">شريك استراتيجي لرؤية 2030</span>
+              <span className="text-[#c8a951] text-xs font-bold tracking-wide">{t("home.vision.badge")}</span>
             </div>
             <h3 className="text-white font-black text-2xl md:text-3xl leading-tight mb-3">
-              نسير نحو رؤية المملكة
+              {t("home.vision.title")}
             </h3>
             <p className="text-white/55 text-sm leading-relaxed max-w-sm mb-5">
-              منصة المسار الذكي تساهم في تحقيق أهداف رؤية 2030 من خلال رقمنة قطاع العمرة
-              وتطوير تجربة المعتمر وتمكين مكاتب السفر المعتمدة.
+              {t("home.vision.text")}
             </p>
-            <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+            <div className={`flex flex-wrap gap-2 justify-center ${dir === "rtl" ? "md:justify-start" : "md:justify-start"}`}>
               {[
-                { label: "رقمنة الخدمات",         icon: "💻" },
-                { label: "تمكين المكاتب",          icon: "🏢" },
-                { label: "تحسين تجربة المعتمر",   icon: "🕋" },
-                { label: "الاقتصاد الرقمي",        icon: "📈" },
+                { label: t("home.vision.digital"),    icon: "💻" },
+                { label: t("home.vision.offices"),    icon: "🏢" },
+                { label: t("home.vision.experience"), icon: "🕋" },
+                { label: t("home.vision.economy"),    icon: "📈" },
               ].map((tag) => (
                 <span
                   key={tag.label}

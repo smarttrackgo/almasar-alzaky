@@ -43,6 +43,7 @@ import AIAssistant from "./components/AIAssistant";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import PushNotificationPrompt from "./components/PushNotificationPrompt";
 import { LanguageProvider, LanguageSelector, useI18n } from "./lib/i18n";
+import { ThemeProvider, ThemeToggle } from "./lib/theme";
 import { Menu, X, User, Headphones, Truck, ChevronRight, CheckCircle } from "lucide-react";
 
 const LOGO = "https://polished-pony-114.convex.cloud/api/storage/f11fbc0b-c796-4263-b5e4-16628550211b";
@@ -445,6 +446,7 @@ function AppShell() {
   return (
     <>
       {showSplash && <SplashScreen onDone={handleSplashDone} />}
+      <ThemeToggle />
       <Authenticated>
         <AuthRedirect page={page} navigate={navigate} />
         <AuthenticatedApp page={page} navigate={navigate} goBack={goBack} canGoBack={canGoBack} menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
@@ -487,9 +489,11 @@ function AppShell() {
 // خريطة أسماء الصفحات بالعربية
 export default function App() {
   return (
-    <LanguageProvider>
-      <AppShell />
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AppShell />
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
 
