@@ -134,6 +134,7 @@ export function buildTaxInvoiceHtml(input: TaxInvoiceInput) {
       <div class="total-row"><span>ضريبة القيمة المضافة ${input.vatRate}%</span><span>${money(input.vatAmount)}</span></div>
       <div class="total-row"><span>الإجمالي شامل الضريبة</span><span>${money(input.grossAmount)}</span></div>
     </div>
+    <div class="note">الإجمالي شامل ضريبة القيمة المضافة ومصاريف خدمة المنصة.</div>
     <div class="note">${safe(input.notes ?? "هذه فاتورة ضريبية مرتبطة بالحجز وكشف الحساب، والمبالغ بالريال السعودي.")}</div>
     <div class="footer">
       <span>تاريخ الطباعة: ${printDate}</span>

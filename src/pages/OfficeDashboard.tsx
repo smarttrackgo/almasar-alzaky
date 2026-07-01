@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Page } from "../App";
@@ -75,7 +75,7 @@ const NATIONALITIES = [
   "أردني", "فلسطيني", "سوري", "عراقي", "لبناني", "إثيوبي", "نيجيري",
 ];
 
-type Tab = "overview" | "packages" | "bookings" | "trips" | "whatsapp" | "email" | "add-package" | "statements" | "buses" | "reviews";
+type Tab = "overview" | "packages" | "bookings" | "trips" | "whatsapp" | "email" | "statements" | "buses" | "reviews";
 
 export default function OfficeDashboard({ navigate }: { navigate: (p: Page) => void }) {
   const myOffice = useQuery(api.offices.getMyOffice);
@@ -97,7 +97,6 @@ export default function OfficeDashboard({ navigate }: { navigate: (p: Page) => v
     { key: "whatsapp",     label: "إشعارات واتساب",     Icon: Smartphone },
     { key: "email",        label: "سجل الإيميل",         Icon: Mail },
     { key: "statements",   label: "كشف الحساب",         Icon: FileText },
-    { key: "add-package",  label: "إضافة برنامج",       Icon: PlusCircle },
     { key: "reviews",      label: "التقييمات",           Icon: Star },
   ];
 
@@ -204,7 +203,6 @@ export default function OfficeDashboard({ navigate }: { navigate: (p: Page) => v
         {tab === "whatsapp"    && <WhatsAppCenterTab officeId={myOffice._id} />}
         {tab === "email"       && <OfficeEmailTab officeId={myOffice._id} />}
         {tab === "statements"  && <StatementsTab officeId={myOffice._id} officeName={myOffice.name} />}
-        {tab === "add-package" && <AddPackageForm officeId={myOffice._id} onSuccess={() => setTab("packages")} />}
         {tab === "reviews"     && <OfficeReviewsTab officeId={myOffice._id} />}
       </div>
     </div>
@@ -768,9 +766,46 @@ function BusesTab({ officeId }: { officeId: any }) {
 
 /* ── Overview ── */
 function OverviewTab({ officeId }: { officeId: any }) {
+  const office = useQuery(api.offices.getById, { officeId });
   const packages = useQuery(api.packages.getByOffice, { officeId });
   const bookings = useQuery(api.bookings.officeBookings, { officeId });
   const waStats  = useQuery(api.whatsapp.getOfficeStats, { officeId });
+  const updateOffice = useMutation(api.offices.updateMyOffice);
+  const [savingOfficial, setSavingOfficial] = useState(false);
+  const [officialForm, setOfficialForm] = useState({
+    legalName: "",
+    commercialRegister: "",
+    taxNumber: "",
+    website: "",
+    address: "",
+    locationUrl: "",
+    contactNumbers: "",
+  });
+
+  useEffect(() => {
+    if (!office) return;
+    setOfficialForm({
+      legalName: office.legalName ?? office.name ?? "",
+      commercialRegister: office.commercialRegister ?? "",
+      taxNumber: office.taxNumber ?? "",
+      website: office.website ?? "",
+      address: office.address ?? "",
+      locationUrl: office.locationUrl ?? "",
+      contactNumbers: office.contactNumbers ?? office.phone ?? "",
+    });
+  }, [office?._id]);
+
+  const saveOfficialInfo = async () => {
+    setSavingOfficial(true);
+    try {
+      await updateOffice(officialForm);
+      toast.success("تم حفظ البيانات الرسمية");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء حفظ البيانات");
+    } finally {
+      setSavingOfficial(false);
+    }
+  };
 
   const totalRevenue = bookings?.reduce((s, b) => s + (b.status !== "cancelled" ? b.totalPrice : 0), 0) ?? 0;
   const pending      = bookings?.filter((b) => b.status === "pending").length ?? 0;
@@ -793,6 +828,57 @@ function OverviewTab({ officeId }: { officeId: any }) {
             <div className="text-white/75 text-xs mt-0.5">{label}</div>
           </div>
         ))}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-emerald-600" />
+              بياناتي الرسمية
+            </h2>
+            <p className="text-xs text-gray-400 mt-1">بيانات الشركة أو المؤسسة المستخدمة في الفواتير وكشوف الحساب</p>
+          </div>
+          <button
+            onClick={saveOfficialInfo}
+            disabled={savingOfficial}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {savingOfficial ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+            حفظ البيانات
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { label: "اسم الشركة / المؤسسة", key: "legalName", placeholder: "الاسم الرسمي" },
+            { label: "السجل التجاري", key: "commercialRegister", placeholder: "رقم السجل التجاري" },
+            { label: "الرقم الضريبي", key: "taxNumber", placeholder: "300xxxxxxxxxxxx" },
+            { label: "الموقع الإلكتروني", key: "website", placeholder: "https://example.com" },
+            { label: "اللوكيشن", key: "locationUrl", placeholder: "رابط Google Maps" },
+            { label: "الأرقام الرسمية", key: "contactNumbers", placeholder: "هاتف ثابت، جوال، واتساب" },
+          ].map(({ label, key, placeholder }) => (
+            <label key={key} className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-600">{label}</span>
+              <input
+                value={(officialForm as any)[key]}
+                onChange={(e) => setOfficialForm((f) => ({ ...f, [key]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full rounded-xl border-2 border-gray-200 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                dir={key === "website" || key === "locationUrl" ? "ltr" : "rtl"}
+              />
+            </label>
+          ))}
+          <label className="block md:col-span-2">
+            <span className="mb-1.5 block text-xs font-semibold text-gray-600">العنوان الرسمي</span>
+            <textarea
+              value={officialForm.address}
+              onChange={(e) => setOfficialForm((f) => ({ ...f, address: e.target.value }))}
+              placeholder="المدينة، الحي، الشارع، رقم المبنى"
+              rows={3}
+              className="w-full resize-none rounded-xl border-2 border-gray-200 px-3 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+            />
+          </label>
+        </div>
       </div>
 
       {waStats && (
@@ -875,6 +961,7 @@ function OverviewTab({ officeId }: { officeId: any }) {
 function PackagesTab({ officeId }: { officeId: any }) {
   const packages = useQuery(api.packages.getByOffice, { officeId });
   const update   = useMutation(api.packages.update);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const toggle = async (id: any, current: boolean | undefined) => {
     try {
@@ -887,13 +974,34 @@ function PackagesTab({ officeId }: { officeId: any }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl font-black text-gray-800">البرامج</h2>
+          <p className="text-sm text-gray-400 mt-0.5">إدارة البرامج وإضافة برنامج جديد من نفس الصفحة</p>
+        </div>
+        <button
+          onClick={() => setShowAddForm((value) => !value)}
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+        >
+          <PlusCircle className="h-4 w-4" />
+          {showAddForm ? "إغلاق الإضافة" : "إضافة برنامج"}
+        </button>
+      </div>
+
+      {showAddForm && (
+        <AddPackageForm officeId={officeId} onSuccess={() => setShowAddForm(false)} />
+      )}
+
       {packages.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
           <Package className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-400 text-sm">لا توجد برامج بعد</p>
         </div>
-      ) : packages.map((pkg) => (
-        <div key={pkg._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-start justify-between gap-4">
+      ) : packages.map((pkg) => {
+        const isExpired = pkg.isExpired === true;
+        const isActive = pkg.isActive !== false && !isExpired;
+        return (
+        <div key={pkg._id} className={`bg-white rounded-2xl shadow-sm border p-5 flex items-start justify-between gap-4 ${isExpired ? "border-red-100 opacity-80" : "border-gray-100"}`}>
           <div className="flex-1 min-w-0">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700 border border-emerald-100">
               <span>رقم البرنامج</span>
@@ -907,22 +1015,31 @@ function PackagesTab({ officeId }: { officeId: any }) {
               <span>•</span>
               <span>{pkg.availableSeats} مقعد متاح</span>
             </div>
+            {isExpired && (
+              <div className="mt-2 inline-flex rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
+                انتهى تلقائياً بعد تاريخ العودة بيوم
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <span className="font-black text-emerald-800 text-sm">{pkg.price.toLocaleString("ar-SA")} ر.س</span>
             <button
+              disabled={isExpired}
               onClick={() => toggle(pkg._id, pkg.isActive)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                pkg.isActive !== false
+                isExpired
+                  ? "bg-red-100 text-red-600 cursor-not-allowed"
+                  : isActive
                   ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
-              {pkg.isActive !== false ? "نشط" : "متوقف"}
+              {isExpired ? "منتهي" : isActive ? "نشط" : "متوقف"}
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -2346,11 +2463,17 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
   const fromTs = dateFrom ? new Date(dateFrom).getTime() : undefined;
   const toTs   = dateTo   ? new Date(dateTo + "T23:59:59").getTime() : undefined;
 
-  const data = useQuery(api.commissions.officeStatement, { officeId, dateFrom: fromTs, dateTo: toTs });
+  const office = useQuery(api.offices.getById, { officeId });
+  const officeBookings = useQuery(api.bookings.officeBookings, { officeId });
+  const officeParty = {
+    name: office?.legalName || officeName,
+    commercialRegister: office?.commercialRegister,
+    taxNumber: office?.taxNumber,
+    city: office?.address || "السعودية",
+  };
 
   const handlePrint = () => {
-    if (!data) return;
-    const { rows = [], summary } = data;
+    if (!summary) return;
     const periodText = dateFrom || dateTo
       ? `الفترة: ${dateFrom || "—"} إلى ${dateTo || "—"}`
       : `جميع الفترات • ${new Date().toLocaleDateString("ar-SA")}`;
@@ -2501,12 +2624,61 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
     no_commission: { label: "—",       cls: "" },
   };
 
-  if (data === undefined) return <Spinner />;
-
-  const { rows = [], summary } = data ?? { rows: [], summary: null };
   const splitVat = (amount: number, rate = 15) => {
     const taxableAmount = Math.round((amount || 0) / (1 + rate / 100));
     return { taxableAmount, vatAmount: Math.max(0, Math.round((amount || 0) - taxableAmount)) };
+  };
+  if (officeBookings === undefined) return <Spinner />;
+
+  const rows = (officeBookings ?? [])
+    .filter((b: any) => b.status !== "cancelled")
+    .filter((b: any) => (fromTs ? b._creationTime >= fromTs : true))
+    .filter((b: any) => (toTs ? b._creationTime <= toTs : true))
+    .map((b: any) => {
+      const officeBaseAmount = b.officeBaseAmount ?? b.totalPrice ?? 0;
+      const passengerFeeAmount = b.passengerFeeAmount ?? Math.max(0, (b.totalPrice ?? 0) - officeBaseAmount);
+      const commissionAmount = b.commissionAmount ?? 0;
+      const commissionRate = b.commissionRate ?? 0;
+      const netAmount = b.netAmount ?? Math.max(0, officeBaseAmount - commissionAmount);
+      const officeTax = splitVat(b.totalPrice ?? officeBaseAmount, 15);
+      return {
+        bookingId: b._id,
+        bookingRef: b.bookingReference,
+        bookingDate: b._creationTime,
+        bookingStatus: b.status,
+        passengerName: b.leadPassengerName,
+        passengerPhone: b.leadPassengerPhone,
+        passengerIdNumber: b.leadPassengerIdNumber,
+        adultsCount: b.adultsCount,
+        childrenCount: b.childrenCount ?? 0,
+        passengerCount: (b.adultsCount ?? 1) + (b.childrenCount ?? 0),
+        packageTitle: b.package?.title ?? "—",
+        bookingAmount: officeBaseAmount,
+        officeBaseAmount,
+        passengerFeeAmount,
+        pilgrimTotalAmount: b.totalPrice ?? officeBaseAmount,
+        taxRate: 15,
+        officeTaxableAmount: officeTax.taxableAmount,
+        officeVatAmount: officeTax.vatAmount,
+        officeInvoiceNo: `OFF-TAX-${b.bookingReference}`,
+        officeLegalName: b.office?.legalName ?? office?.legalName,
+        officeCommercialRegister: b.office?.commercialRegister ?? office?.commercialRegister,
+        officeTaxNumber: b.office?.taxNumber ?? office?.taxNumber,
+        officeAddress: b.office?.address ?? office?.address,
+        commissionRate,
+        commissionAmount,
+        netAmount,
+        commissionStatus: b.status === "completed" ? "settled" : commissionAmount > 0 ? "pending" : "no_commission",
+      };
+    });
+  const summary = {
+    totalRows: rows.length,
+    totalBookingAmount: rows.reduce((s: number, r: any) => s + (r.bookingAmount ?? 0), 0),
+    totalCommission: rows.reduce((s: number, r: any) => s + (r.commissionAmount ?? 0), 0),
+    totalNet: rows.reduce((s: number, r: any) => s + (r.netAmount ?? 0), 0),
+    completedCount: rows.filter((r: any) => r.bookingStatus === "completed").length,
+    confirmedCount: rows.filter((r: any) => r.bookingStatus === "confirmed").length,
+    settledNet: rows.filter((r: any) => r.commissionStatus === "settled").reduce((s: number, r: any) => s + (r.netAmount ?? 0), 0),
   };
   const bookingGross = (row: any) => row.pilgrimTotalAmount ?? row.officeBaseAmount ?? row.bookingAmount ?? 0;
   const bookingPassengerCount = (row: any) => Math.max(1, Number(row.passengerCount ?? row.adultsCount ?? 1));
@@ -2726,6 +2898,7 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
                 <div><span>ضريبة القيمة المضافة ${safePrint(row.taxRate ?? 15)}%</span><strong>${moneyPrint(tax.vatAmount)}</strong></div>
                 <div><span>الإجمالي شامل الضريبة</span><strong>${moneyPrint(gross)}</strong></div>
               </div>
+              <div class="note">الإجمالي شامل ضريبة القيمة المضافة ومصاريف خدمة المنصة.</div>
               <div class="inv-footer">
                 <span>تاريخ الطباعة: ${new Date().toLocaleString("ar-SA")}</span>
                 <span>فاتورة مكتب مرتبطة بكشف الحساب</span>
@@ -2790,7 +2963,12 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
     void printTaxInvoice({
       invoiceNo: row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`,
       title: "فاتورة ضريبية - خدمة المكتب",
-      seller: { name: officeName, commercialRegister: row.officeCommercialRegister, city: "السعودية" },
+      seller: {
+        name: row.officeLegalName || officeParty.name,
+        commercialRegister: row.officeCommercialRegister || officeParty.commercialRegister,
+        taxNumber: row.officeTaxNumber || officeParty.taxNumber,
+        city: row.officeAddress || officeParty.city,
+      },
       buyer: { name: row.passengerName, city: "السعودية" },
       bookingRef: row.bookingRef,
       passengerName: row.passengerName,
@@ -2811,7 +2989,12 @@ function StatementsTab({ officeId, officeName }: { officeId: any; officeName: st
     void printTaxInvoice({
       invoiceNo: `${row.officeInvoiceNo ?? `OFF-TAX-${row.bookingRef}`}-P${index + 1}`,
       title: "فاتورة ضريبية منفصلة - معتمر",
-      seller: { name: officeName, commercialRegister: row.officeCommercialRegister, city: "السعودية" },
+      seller: {
+        name: row.officeLegalName || officeParty.name,
+        commercialRegister: row.officeCommercialRegister || officeParty.commercialRegister,
+        taxNumber: row.officeTaxNumber || officeParty.taxNumber,
+        city: row.officeAddress || officeParty.city,
+      },
       buyer: { name: passenger.name, city: "السعودية" },
       bookingRef: row.bookingRef,
       passengerName: passenger.name,

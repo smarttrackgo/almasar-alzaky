@@ -32,6 +32,30 @@ function withPackageReference(pkg: any) {
   };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function packageExpiryTime(returnDate?: string | null): number | null {
+  if (!returnDate) return null;
+  const [year, month, day] = returnDate.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return Date.UTC(year, month - 1, day) + (2 * DAY_MS) - 1;
+}
+
+function isPackageExpired(pkg: { returnDate?: string | null }, now = Date.now()): boolean {
+  const expiryTime = packageExpiryTime(pkg.returnDate);
+  return expiryTime !== null && now > expiryTime;
+}
+
+function withPackageLifecycle(pkg: any, now = Date.now()) {
+  const isExpired = isPackageExpired(pkg, now);
+  return {
+    ...withPackageReference(pkg),
+    isExpired,
+    effectiveIsActive: pkg.isActive !== false && !isExpired,
+    expiresAt: packageExpiryTime(pkg.returnDate),
+  };
+}
+
 export const list = query({
   args: {
     departureCity: v.optional(v.string()),
@@ -39,8 +63,9 @@ export const list = query({
     maxPrice: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
     const all = await ctx.db.query("packages").collect();
-    let filtered = all.filter((p) => p.isActive !== false);
+    let filtered = all.filter((p) => p.isActive !== false && !isPackageExpired(p, now));
     if (args.departureCity) filtered = filtered.filter((p) => p.departureCity === args.departureCity);
     if (args.packageType) filtered = filtered.filter((p) => p.packageType === args.packageType);
     if (args.maxPrice) filtered = filtered.filter((p) => p.price <= args.maxPrice!);
@@ -48,7 +73,7 @@ export const list = query({
       filtered.map(async (pkg) => {
         const pricing = await calculatePackagePricing(ctx, pkg.officeId, pkg.price);
         return {
-          ...withPackageReference(pkg),
+          ...withPackageLifecycle(pkg, now),
           officePrice: pkg.price,
           price: pricing.displayPrice,
           pricing,
@@ -165,7 +190,7 @@ export const getById = query({
     );
     const pricing = await calculatePackagePricing(ctx, pkg.officeId, pkg.price);
     return {
-      ...withPackageReference(pkg),
+      ...withPackageLifecycle(pkg),
       officePrice: pkg.price,
       price: pricing.displayPrice,
       pricing,
@@ -182,7 +207,8 @@ export const getByOffice = query({
       .query("packages")
       .withIndex("by_office", (q) => q.eq("officeId", args.officeId))
       .collect();
-    return packages.map(withPackageReference);
+    const now = Date.now();
+    return packages.map((pkg) => withPackageLifecycle(pkg, now));
   },
 });
 

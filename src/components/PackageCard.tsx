@@ -132,7 +132,8 @@ export default function PackageCard({ pkg, navigate }: { pkg: Pkg; navigate: (p:
               {pkg.price.toLocaleString("ar-SA")}
               <span className="text-sm font-semibold text-gray-500 mr-1">ر.س</span>
             </div>
-            <div className="text-[11px] font-bold text-amber-700 mt-0.5">يشمل مصاريف تشغيل وخدمات المنصة</div>
+            <div className="mt-1 text-[11px] font-bold text-emerald-700">شامل ضريبة القيمة المضافة</div>
+            <div className="text-[10px] font-semibold text-amber-700">ومصاريف خدمة المنصة</div>
             {pkg.originalPrice && (
               <div className="text-xs text-gray-400 line-through">
                 {pkg.originalPrice.toLocaleString("ar-SA")} ر.س

@@ -100,7 +100,20 @@ export const adminGetSettings = query({
     if (!userId) return null;
     const user = await ctx.db.get(userId);
     if (!(user as any)?.isAdmin) return null;
-    const keys = ["sms_enabled","twilio_account_sid","twilio_auth_token","twilio_from_number","sms_driver_assigned","sms_driver_accepted","sms_trip_started","sms_trip_completed"];
+    const keys = [
+      "sms_enabled",
+      "sms_provider",
+      "twilio_account_sid",
+      "twilio_auth_token",
+      "twilio_from_number",
+      "unifonic_app_sid",
+      "unifonic_sender_id",
+      "unifonic_base_url",
+      "sms_driver_assigned",
+      "sms_driver_accepted",
+      "sms_trip_started",
+      "sms_trip_completed",
+    ];
     const result: Record<string, string> = {};
     for (const key of keys) {
       const row = await ctx.db.query("appSettings").withIndex("by_key", (q) => q.eq("key", key)).first();

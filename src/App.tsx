@@ -547,7 +547,13 @@ function Navbar({ navigate, page, menuOpen, setMenuOpen, goBack, canGoBack }: {
             <span />
             <span />
             <span />
-            <img src={LOGO} alt="" className="smart-menu-bus__logo" aria-hidden="true" />
+            <img
+              src={LOGO}
+              alt=""
+              className="smart-menu-bus__logo"
+              aria-hidden="true"
+              style={{ position: "absolute", left: 8, bottom: 8, width: 18, height: 12, objectFit: "contain" }}
+            />
           </div>
           <div className="smart-menu-bus__wheels">
             <i />
@@ -745,6 +751,20 @@ function SupportNavBtn({ active, onClick }: { active: boolean; onClick: () => vo
 }
 
 function SignInPage({ navigate }: { navigate: (p: Page) => void }) {
+  const user = useQuery(api.auth.loggedInUser);
+  const myOffice = useQuery(api.offices.getMyOffice);
+
+  useEffect(() => {
+    if (!user) return;
+    if ((user as any).isAdmin) {
+      navigate({ name: "admin" });
+      return;
+    }
+    if (myOffice) {
+      navigate({ name: "office-dashboard" });
+    }
+  }, [user, myOffice, navigate]);
+
   return (
     <div className="min-h-screen flex" dir="rtl">
 

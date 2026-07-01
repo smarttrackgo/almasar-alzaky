@@ -29,6 +29,12 @@ const DEFAULT_SETTINGS = [
   { key: "contact_phone",   label: "رقم الهاتف",            type: "text",     value: "920000000" },
   { key: "contact_email",   label: "البريد الإلكتروني",     type: "text",     value: "info@almasaraldaki.sa" },
   { key: "contact_address", label: "العنوان",               type: "text",     value: "المملكة العربية السعودية" },
+  { key: "platform_legal_name", label: "اسم الشركة / المؤسسة الرسمي", type: "text", value: "المسار الذكي" },
+  { key: "platform_commercial_register", label: "السجل التجاري للمنصة", type: "text", value: "" },
+  { key: "platform_tax_number", label: "الرقم الضريبي للمنصة", type: "text", value: "" },
+  { key: "platform_website", label: "الموقع الإلكتروني للمنصة", type: "text", value: "https://almasaralzaky.com" },
+  { key: "platform_location_url", label: "رابط اللوكيشن للمنصة", type: "text", value: "" },
+  { key: "platform_contact_numbers", label: "الأرقام الرسمية للمنصة", type: "text", value: "" },
   { key: "whatsapp",        label: "رقم واتساب",            type: "text",     value: "" },
   // ── وسائل التواصل الاجتماعي ──
   { key: "twitter",         label: "رابط حساب X (تويتر) — مثال: https://x.com/yourhandle",         type: "text", value: "" },

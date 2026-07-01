@@ -11,6 +11,10 @@ function cleanPhone(raw: string): string {
   return "+" + p;
 }
 
+function cleanPhoneForUnifonic(raw: string): string {
+  return cleanPhone(raw).replace(/^\+/, "");
+}
+
 function buildSMSText(type: string, data: Record<string, string>): string {
   switch (type) {
     case "driver_assigned":
@@ -49,18 +53,6 @@ export const sendSMS = internalAction({
     const isEnabled: string | null = await ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "sms_enabled" });
     if (isEnabled === "false") return { success: false, error: "SMS موقوف من الإعدادات" };
 
-    const [accountSid, authToken, fromNumber] = await Promise.all([
-      ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "twilio_account_sid" }),
-      ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "twilio_auth_token" }),
-      ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "twilio_from_number" }),
-    ]);
-
-    if (!accountSid || !authToken || !fromNumber) {
-      const missing = [!accountSid && "Account SID", !authToken && "Auth Token", !fromNumber && "From Number"].filter(Boolean).join("، ");
-      await ctx.runMutation(internal.sms.logSMS, { phone: args.phone, messageType: args.messageType, messageText: `[إعدادات Twilio ناقصة: ${missing}]`, status: "failed", error: `إعدادات ناقصة: ${missing}`, bookingId: args.bookingId, userId: args.userId, officeId: args.officeId });
-      return { success: false, error: `إعدادات Twilio ناقصة: ${missing}` };
-    }
-
     const phone = cleanPhone(args.phone);
     const messageText = buildSMSText(args.messageType, {
       passengerName: args.messageData.passengerName ?? "",
@@ -73,6 +65,68 @@ export const sendSMS = internalAction({
       totalPrice:    args.messageData.totalPrice     ?? "",
       message:       args.messageData.message        ?? "",
     });
+
+    const provider = (await ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "sms_provider" })) || "twilio";
+
+    if (provider === "unifonic") {
+      const [appSid, senderId, baseUrl] = await Promise.all([
+        ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "unifonic_app_sid" }),
+        ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "unifonic_sender_id" }),
+        ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "unifonic_base_url" }),
+      ]);
+
+      if (!appSid || !senderId) {
+        const missing = [!appSid && "AppSid", !senderId && "SenderID"].filter(Boolean).join("، ");
+        await ctx.runMutation(internal.sms.logSMS, { phone: args.phone, messageType: args.messageType, messageText: `[إعدادات Unifonic ناقصة: ${missing}]`, status: "failed", error: `إعدادات ناقصة: ${missing}`, bookingId: args.bookingId, userId: args.userId, officeId: args.officeId });
+        return { success: false, error: `إعدادات Unifonic ناقصة: ${missing}` };
+      }
+
+      const endpoint = (baseUrl || "https://el.cloud.unifonic.com/rest/SMS/messages").replace(/\/$/, "");
+      const body = new URLSearchParams({
+        AppSid: appSid,
+        SenderID: senderId,
+        Body: messageText,
+        Recipient: cleanPhoneForUnifonic(args.phone),
+        responseType: "JSON",
+        CorrelationID: `${args.messageType}-${Date.now()}`,
+        baseEncode: "true",
+        async: "false",
+      });
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        const data: any = await res.json().catch(() => ({}));
+        const ok = res.ok && data?.success !== false;
+        if (!ok) {
+          const error = data?.message || data?.errorCode || `HTTP ${res.status}`;
+          await ctx.runMutation(internal.sms.logSMS, { phone, messageType: args.messageType, messageText, status: "failed", error, bookingId: args.bookingId, userId: args.userId, officeId: args.officeId });
+          return { success: false, error };
+        }
+        const sid = String(data?.data?.MessageID ?? data?.messageId ?? data?.id ?? "sent");
+        await ctx.runMutation(internal.sms.logSMS, { phone, messageType: args.messageType, messageText, status: "sent", twilioSid: sid, bookingId: args.bookingId, userId: args.userId, officeId: args.officeId });
+        return { success: true, sid };
+      } catch (err: any) {
+        const errMsg = err?.message ?? "خطأ غير معروف";
+        await ctx.runMutation(internal.sms.logSMS, { phone, messageType: args.messageType, messageText, status: "failed", error: errMsg, bookingId: args.bookingId, userId: args.userId, officeId: args.officeId });
+        return { success: false, error: errMsg };
+      }
+    }
+
+    const [accountSid, authToken, fromNumber] = await Promise.all([
+      ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "twilio_account_sid" }),
+      ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "twilio_auth_token" }),
+      ctx.runQuery(internal.whatsappHelpers.getSetting, { key: "twilio_from_number" }),
+    ]);
+
+    if (!accountSid || !authToken || !fromNumber) {
+      const missing = [!accountSid && "Account SID", !authToken && "Auth Token", !fromNumber && "From Number"].filter(Boolean).join("، ");
+      await ctx.runMutation(internal.sms.logSMS, { phone: args.phone, messageType: args.messageType, messageText: `[إعدادات Twilio ناقصة: ${missing}]`, status: "failed", error: `إعدادات ناقصة: ${missing}`, bookingId: args.bookingId, userId: args.userId, officeId: args.officeId });
+      return { success: false, error: `إعدادات Twilio ناقصة: ${missing}` };
+    }
 
     try {
       const client = twilio(accountSid, authToken);

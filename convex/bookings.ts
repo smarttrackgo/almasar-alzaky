@@ -13,6 +13,20 @@ function fallbackPackageReference(id: unknown): string {
 }
 
 // ── جلب نسبة العمولة الفعّالة لمكتب ──
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function packageExpiryTime(returnDate?: string | null): number | null {
+  if (!returnDate) return null;
+  const [year, month, day] = returnDate.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return Date.UTC(year, month - 1, day) + (2 * DAY_MS) - 1;
+}
+
+function isPackageExpired(pkg: { returnDate?: string | null }, now = Date.now()): boolean {
+  const expiryTime = packageExpiryTime(pkg.returnDate);
+  return expiryTime !== null && now > expiryTime;
+}
+
 async function getEffectiveRate(ctx: any, officeId: string): Promise<number> {
   return await getOfficeCommissionRate(ctx, officeId);
 }
@@ -77,6 +91,9 @@ export const create = mutation({
     const user = await ctx.db.get(userId);
     const pkg = await ctx.db.get(args.packageId);
     if (!pkg) throw new ConvexError("البرنامج غير موجود");
+    if (pkg.isActive === false || isPackageExpired(pkg)) {
+      throw new ConvexError("البرنامج منتهي أو غير متاح للحجز");
+    }
     if (pkg.availableSeats < args.adultsCount)
       throw new ConvexError("عدد المقاعد المتاحة غير كافٍ");
 
@@ -325,6 +342,10 @@ export const adminCreateBooking = mutation({
       passengerFeeRate,
     );
     const bookingRef = generateRef();
+
+    if (pkg.isActive === false || isPackageExpired(pkg)) {
+      throw new ConvexError("البرنامج منتهي أو غير متاح للحجز");
+    }
 
     const bookingId = await ctx.db.insert("bookings", {
       packageId:             args.packageId,

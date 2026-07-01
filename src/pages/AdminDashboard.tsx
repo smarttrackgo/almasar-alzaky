@@ -541,7 +541,11 @@ function AppSettingsTab() {
       icon: <Phone className="w-5 h-5 text-amber-600" />,
       color: "from-amber-50 to-orange-50",
       border: "border-amber-200",
-      keys: ["contact_phone", "contact_email", "contact_address", "whatsapp"],
+      keys: [
+        "contact_phone", "contact_email", "contact_address", "whatsapp",
+        "platform_legal_name", "platform_commercial_register", "platform_tax_number",
+        "platform_website", "platform_location_url", "platform_contact_numbers",
+      ],
     },
     {
       title: "وسائل التواصل الاجتماعي",
@@ -1298,6 +1302,7 @@ function OfficesTab() {
   const [newOfficeForm, setNewOfficeForm] = useState({
     name: "", city: "", phone: "", email: "",
     description: "", licenseNumber: "", commercialRegister: "",
+    legalName: "", taxNumber: "", website: "", address: "", locationUrl: "", contactNumbers: "",
     ownerEmail: "", isVerified: false,
   });
   const [creatingOffice, setCreatingOffice] = useState(false);
@@ -1317,12 +1322,23 @@ function OfficesTab() {
         description: newOfficeForm.description || undefined,
         licenseNumber: newOfficeForm.licenseNumber || undefined,
         commercialRegister: newOfficeForm.commercialRegister || undefined,
+        legalName: newOfficeForm.legalName || undefined,
+        taxNumber: newOfficeForm.taxNumber || undefined,
+        website: newOfficeForm.website || undefined,
+        address: newOfficeForm.address || undefined,
+        locationUrl: newOfficeForm.locationUrl || undefined,
+        contactNumbers: newOfficeForm.contactNumbers || undefined,
         ownerEmail: newOfficeForm.ownerEmail || undefined,
         isVerified: newOfficeForm.isVerified,
       });
       toast.success("✅ تم إنشاء المكتب بنجاح");
       setShowCreate(false);
-      setNewOfficeForm({ name: "", city: "", phone: "", email: "", description: "", licenseNumber: "", commercialRegister: "", ownerEmail: "", isVerified: false });
+      setNewOfficeForm({
+        name: "", city: "", phone: "", email: "",
+        description: "", licenseNumber: "", commercialRegister: "",
+        legalName: "", taxNumber: "", website: "", address: "", locationUrl: "", contactNumbers: "",
+        ownerEmail: "", isVerified: false,
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "حدث خطأ");
     } finally {
@@ -1356,6 +1372,12 @@ function OfficesTab() {
       email: o.email ?? "",
       licenseNumber: o.licenseNumber ?? "",
       commercialRegister: o.commercialRegister ?? "",
+      legalName: o.legalName ?? "",
+      taxNumber: o.taxNumber ?? "",
+      website: o.website ?? "",
+      address: o.address ?? "",
+      locationUrl: o.locationUrl ?? "",
+      contactNumbers: o.contactNumbers ?? "",
       adminNotes: o.adminNotes ?? "",
     });
     setLogoPreview(o.logoUrl ?? null);
@@ -1484,6 +1506,24 @@ function OfficesTab() {
                   className={inp}
                 />
               </div>
+              {[
+                { label: "اسم الشركة / المؤسسة", key: "legalName", placeholder: "الاسم الرسمي في السجل" },
+                { label: "الرقم الضريبي", key: "taxNumber", placeholder: "300xxxxxxxxxxxx" },
+                { label: "الموقع الإلكتروني", key: "website", placeholder: "https://example.com" },
+                { label: "رابط اللوكيشن", key: "locationUrl", placeholder: "https://maps.google.com/..." },
+                { label: "الأرقام الرسمية", key: "contactNumbers", placeholder: "هاتف ثابت، جوال، واتساب" },
+                { label: "العنوان", key: "address", placeholder: "المدينة، الحي، الشارع" },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <label className="text-xs font-semibold text-gray-600 mb-1.5 block">{label}</label>
+                  <input
+                    value={(newOfficeForm as any)[key]}
+                    onChange={(e) => setNewOfficeForm((f) => ({ ...f, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className={inp}
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1611,6 +1651,12 @@ function OfficesTab() {
                       { label: "البريد الإلكتروني", value: o.email, icon: "📧" },
                       { label: "رقم الترخيص",       value: o.licenseNumber || "غير محدد", icon: "📄" },
                       { label: "السجل التجاري",      value: o.commercialRegister || "غير محدد", icon: "#️⃣" },
+                      { label: "اسم الشركة / المؤسسة", value: o.legalName || o.name || "غير محدد", icon: "🏢" },
+                      { label: "الرقم الضريبي", value: o.taxNumber || "غير محدد", icon: "٪" },
+                      { label: "الموقع الإلكتروني", value: o.website || "غير محدد", icon: "🌐" },
+                      { label: "اللوكيشن", value: o.locationUrl || "غير محدد", icon: "📍" },
+                      { label: "الأرقام الرسمية", value: o.contactNumbers || o.phone || "غير محدد", icon: "☎" },
+                      { label: "العنوان", value: o.address || "غير محدد", icon: "🧭" },
                       { label: "التقييم",            value: o.rating ? `${o.rating} ⭐` : "لا يوجد", icon: "⭐" },
                       { label: "عدد التقييمات",      value: `${o.reviewCount ?? 0} تقييم`, icon: "💬" },
                       { label: "الوصف",              value: o.description, icon: "📝" },
@@ -1684,6 +1730,19 @@ function OfficesTab() {
                           <label className="text-xs font-semibold text-gray-600 mb-1.5 block">السجل التجاري</label>
                           <input value={form.commercialRegister ?? ""} onChange={(e) => setForm((f: any) => ({ ...f, commercialRegister: e.target.value }))} placeholder="1010XXXXXX" className={inp} />
                         </div>
+                        {[
+                          { label: "اسم الشركة / المؤسسة", key: "legalName", placeholder: "الاسم الرسمي في السجل" },
+                          { label: "الرقم الضريبي", key: "taxNumber", placeholder: "300xxxxxxxxxxxx" },
+                          { label: "الموقع الإلكتروني", key: "website", placeholder: "https://example.com" },
+                          { label: "رابط اللوكيشن", key: "locationUrl", placeholder: "https://maps.google.com/..." },
+                          { label: "الأرقام الرسمية", key: "contactNumbers", placeholder: "هاتف ثابت، جوال، واتساب" },
+                          { label: "العنوان", key: "address", placeholder: "المدينة، الحي، الشارع" },
+                        ].map(({ label, key, placeholder }) => (
+                          <div key={key}>
+                            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">{label}</label>
+                            <input value={form[key] ?? ""} onChange={(e) => setForm((f: any) => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} className={inp} />
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <div>
@@ -3461,6 +3520,7 @@ function Empty({ icon, text }: { icon: React.ReactNode; text: string }) {
 function AdminStatementsTab() {
   const offices = useQuery(api.admin.getAllOffices);
   const bookings = useQuery(api.admin.getAllBookings);
+  const settingsMap = useQuery(api.appSettings.getMap);
 
   const [filterOffice, setFilterOffice] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -3487,6 +3547,12 @@ function AdminStatementsTab() {
   };
 
   const inp = "w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all";
+  const platformParty = {
+    name: String(settingsMap?.platform_legal_name || settingsMap?.app_name || "المسار الذكي"),
+    taxNumber: String(settingsMap?.platform_tax_number || ""),
+    commercialRegister: String(settingsMap?.platform_commercial_register || ""),
+    city: String(settingsMap?.contact_address || "السعودية"),
+  };
 
   const splitVat = (amount: number, rate = 15) => {
     const taxableAmount = Math.round((amount || 0) / (1 + rate / 100));
@@ -3535,7 +3601,10 @@ function AdminStatementsTab() {
         platformVatAmount: platformTax.vatAmount,
         platformInvoiceNo: `MSR-TAX-${b.bookingReference}`,
         officeInvoiceNo: `OFF-TAX-${b.bookingReference}`,
+        officeLegalName: b.office?.legalName,
         officeCommercialRegister: b.office?.commercialRegister,
+        officeTaxNumber: b.office?.taxNumber,
+        officeAddress: b.office?.address,
         commissionRate,
         commissionAmount,
         netAmount,
@@ -3614,8 +3683,8 @@ function AdminStatementsTab() {
     void printTaxInvoice({
       invoiceNo: r.platformInvoiceNo ?? `MSR-TAX-${r.bookingRef}`,
       title: "فاتورة ضريبية - إيراد المنصة",
-      seller: { name: "المسار الذكي", taxNumber: "يضاف من إعدادات المنصة", commercialRegister: "يضاف من إعدادات المنصة", city: "السعودية" },
-      buyer: { name: r.officeName, commercialRegister: r.officeCommercialRegister, city: "السعودية" },
+      seller: platformParty,
+      buyer: { name: r.officeLegalName || r.officeName, commercialRegister: r.officeCommercialRegister, taxNumber: r.officeTaxNumber, city: r.officeAddress || "السعودية" },
       bookingRef: r.bookingRef,
       passengerName: r.passengerName,
       passengerCount: r.passengerCount ?? r.adultsCount,
@@ -3636,7 +3705,7 @@ function AdminStatementsTab() {
     void printTaxInvoice({
       invoiceNo: r.officeInvoiceNo ?? `OFF-TAX-${r.bookingRef}`,
       title: "فاتورة ضريبية - خدمة المكتب",
-      seller: { name: r.officeName, commercialRegister: r.officeCommercialRegister, city: "السعودية" },
+      seller: { name: r.officeLegalName || r.officeName, commercialRegister: r.officeCommercialRegister, taxNumber: r.officeTaxNumber, city: r.officeAddress || "السعودية" },
       buyer: { name: r.passengerName, city: "السعودية" },
       bookingRef: r.bookingRef,
       passengerName: r.passengerName,
@@ -3854,6 +3923,7 @@ function AdminStatementsTab() {
               <div><span>ضريبة القيمة المضافة ${safePrint(r.taxRate ?? 15)}%</span><strong>${moneyPrint(vatAmount)}</strong></div>
               <div><span>الإجمالي شامل الضريبة</span><strong>${moneyPrint(gross)}</strong></div>
             </div>
+            <div class="note">الإجمالي شامل ضريبة القيمة المضافة ومصاريف خدمة المنصة.</div>
             <div class="note">هذه الفاتورة مرتبطة بكشف حساب المنصة ورقم الحجز ${safePrint(r.bookingRef)}، والمبالغ بالريال السعودي.</div>
             <div class="inv-footer">
               <span>تاريخ الطباعة: ${printDate()}</span>
@@ -3928,7 +3998,7 @@ function AdminStatementsTab() {
     void printTaxInvoice({
       invoiceNo: `${r.officeInvoiceNo ?? `OFF-TAX-${r.bookingRef}`}-P${index + 1}`,
       title: "فاتورة ضريبية منفصلة - معتمر",
-      seller: { name: r.officeName, commercialRegister: r.officeCommercialRegister, city: "السعودية" },
+      seller: { name: r.officeLegalName || r.officeName, commercialRegister: r.officeCommercialRegister, taxNumber: r.officeTaxNumber, city: r.officeAddress || "السعودية" },
       buyer: { name: passenger.name, city: "السعودية" },
       bookingRef: r.bookingRef,
       passengerName: passenger.name,

@@ -6,7 +6,7 @@ import {
   Smartphone, Send, CheckCircle, XCircle, Clock,
   Settings, BarChart3, MessageSquare, Eye, EyeOff,
   RefreshCw, AlertCircle, Info, ToggleLeft, ToggleRight,
-  Phone, Hash, Key, Loader2,
+  Phone, Hash, Key, Loader2, Globe,
 } from "lucide-react";
 
 const MSG_TYPE_LABELS: Record<string, { label: string; color: string; icon: string }> = {
@@ -34,9 +34,13 @@ export default function SMSTab() {
 
   const [form, setForm] = useState({
     sms_enabled:          "true",
+    sms_provider:         "unifonic",
     twilio_account_sid:   "",
     twilio_auth_token:    "",
     twilio_from_number:   "",
+    unifonic_app_sid:     "",
+    unifonic_sender_id:   "",
+    unifonic_base_url:    "https://el.cloud.unifonic.com/rest/SMS/messages",
     sms_driver_assigned:  "true",
     sms_driver_accepted:  "true",
     sms_trip_started:     "true",
@@ -46,9 +50,13 @@ export default function SMSTab() {
   if (settings && !formLoaded) {
     setForm({
       sms_enabled:          settings.sms_enabled          || "true",
+      sms_provider:         settings.sms_provider         || "unifonic",
       twilio_account_sid:   settings.twilio_account_sid   || "",
       twilio_auth_token:    settings.twilio_auth_token     || "",
       twilio_from_number:   settings.twilio_from_number    || "",
+      unifonic_app_sid:     settings.unifonic_app_sid     || "",
+      unifonic_sender_id:   settings.unifonic_sender_id   || "",
+      unifonic_base_url:    settings.unifonic_base_url    || "https://el.cloud.unifonic.com/rest/SMS/messages",
       sms_driver_assigned:  settings.sms_driver_assigned   || "true",
       sms_driver_accepted:  settings.sms_driver_accepted   || "true",
       sms_trip_started:     settings.sms_trip_started      || "true",
@@ -248,6 +256,72 @@ export default function SMSTab() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-blue-600" />
+              مزود خدمة SMS
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { key: "unifonic", title: "Unifonic", desc: "أنسب للسعودية ويدعم Sender ID محلي" },
+                { key: "twilio", title: "Twilio", desc: "موجود حالياً لكنه أعلى تكلفة داخل السعودية" },
+              ].map((provider) => (
+                <button
+                  key={provider.key}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, sms_provider: provider.key }))}
+                  className={`text-right rounded-2xl border-2 p-4 transition-all ${
+                    form.sms_provider === provider.key
+                      ? "border-blue-500 bg-blue-50 text-blue-800"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-blue-200"
+                  }`}
+                >
+                  <div className="font-black">{provider.title}</div>
+                  <div className="text-xs mt-1 opacity-75">{provider.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {form.sms_provider === "unifonic" && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <Key className="w-5 h-5 text-blue-600" />
+                  بيانات Unifonic
+                </h3>
+                <button onClick={() => setShowTokens(!showTokens)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700">
+                  {showTokens ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showTokens ? "إخفاء" : "إظهار"}
+                </button>
+              </div>
+              {[
+                { key: "unifonic_app_sid", label: "AppSid", placeholder: "Application SID", Icon: Key, secret: true },
+                { key: "unifonic_sender_id", label: "SenderID", placeholder: "ALMASAR", Icon: Hash, secret: false },
+                { key: "unifonic_base_url", label: "API URL", placeholder: "https://el.cloud.unifonic.com/rest/SMS/messages", Icon: Globe, secret: false },
+              ].map(({ key, label, placeholder, Icon, secret }) => (
+                <div key={key}>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                    <Icon className="w-4 h-4 inline ml-1.5 text-blue-500" />
+                    {label}
+                  </label>
+                  <input
+                    type={secret && !showTokens ? "password" : "text"}
+                    value={form[key as keyof typeof form]}
+                    onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    dir="ltr"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none font-mono text-sm transition-all"
+                  />
+                </div>
+              ))}
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
+                يجب تسجيل SenderID واعتماده من مزود الخدمة قبل الإرسال الفعلي داخل السعودية.
+              </div>
+            </div>
+          )}
+
+          {form.sms_provider === "twilio" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <Key className="w-5 h-5 text-blue-600" />
@@ -279,6 +353,7 @@ export default function SMSTab() {
               </div>
             ))}
           </div>
+          )}
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">

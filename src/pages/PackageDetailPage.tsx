@@ -126,9 +126,15 @@ export default function PackageDetailPage({
 
   const totalPrice = pkg.price * adults + pkg.price * 0.5 * children;
   const packageRef = programReference(pkg);
+  const isExpired = (pkg as any).isExpired === true;
+  const bookingUnavailable = isExpired || (pkg as any).isActive === false;
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (bookingUnavailable) {
+      toast.error("هذا البرنامج منتهي أو غير متاح للحجز");
+      return;
+    }
     const fullPhone = buildFullPhone();
     if (!name || !phoneLocal.trim() || !idNum) { toast.error("يرجى تعبئة جميع الحقول المطلوبة"); return; }
     if (phoneLocal.trim().replace(/\D/g, "").length < 7) { toast.error("رقم الجوال غير صحيح"); return; }
@@ -329,8 +335,9 @@ export default function PackageDetailPage({
             <div className="sticky top-24">
               <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden anim-scale-in">
                 <div className="bg-gradient-to-br from-emerald-800 to-emerald-900 p-5 text-white">
-                  <div className="text-amber-200 text-xs font-bold mb-1">يشمل مصاريف تشغيل وخدمات المنصة</div>
+                  <div className="text-emerald-200 text-xs font-bold mb-1">شامل ضريبة القيمة المضافة</div>
                   <div className="text-3xl font-black">{pkg.price.toLocaleString("ar-SA")} <span className="text-base font-semibold text-emerald-200">ر.س</span></div>
+                  <div className="text-amber-200 text-xs font-bold mt-1">ومصاريف خدمة المنصة</div>
                   <div className="text-emerald-300 text-sm">للشخص الواحد</div>
                   {pkg.originalPrice && (
                     <div className="text-emerald-400 line-through text-sm">{pkg.originalPrice.toLocaleString("ar-SA")} ر.س</div>
@@ -357,26 +364,35 @@ export default function PackageDetailPage({
                           </div>
                         ))}
                       </div>
+                      {bookingUnavailable && (
+                        <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+                          هذا البرنامج انتهى تلقائياً بعد تاريخ العودة بيوم وغير متاح للحجز.
+                        </div>
+                      )}
                       <Authenticated>
                         <button
                           onClick={() => {
+                            if (bookingUnavailable) return;
                             fillFromProfile();
                             setShowForm(true);
                           }}
-                          disabled={pkg.availableSeats === 0}
+                          disabled={bookingUnavailable || pkg.availableSeats === 0}
                           className="w-full py-3.5 rounded-xl font-bold text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ background: "linear-gradient(135deg,#1b4332,#2d6a4f)" }}
                         >
-                          {pkg.availableSeats === 0 ? "مكتمل العدد" : "احجز الآن"}
+                          {bookingUnavailable ? "البرنامج منتهي" : pkg.availableSeats === 0 ? "مكتمل العدد" : "احجز الآن"}
                         </button>
                       </Authenticated>
                       <Unauthenticated>
                         <button
-                          onClick={() => navigate({ name: "signin" })}
-                          className="w-full py-3.5 rounded-xl font-bold text-white transition-all shadow-md hover:shadow-lg"
+                          onClick={() => {
+                            if (!bookingUnavailable) navigate({ name: "signin" });
+                          }}
+                          disabled={bookingUnavailable}
+                          className="w-full py-3.5 rounded-xl font-bold text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ background: "linear-gradient(135deg,#1b4332,#2d6a4f)" }}
                         >
-                          سجّل دخولك للحجز
+                          {bookingUnavailable ? "البرنامج منتهي" : "سجّل دخولك للحجز"}
                         </button>
                       </Unauthenticated>
                     </>
