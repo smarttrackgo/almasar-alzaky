@@ -6,6 +6,8 @@ import {
   Loader2, TrendingDown, Lightbulb, Star,
 } from "lucide-react";
 import assistantAvatar from "../assets/smart-ai-assistant.webp";
+import assistantBody from "../assets/smart-ai-assistant-body.webp";
+import assistantHand from "../assets/smart-ai-assistant-hand.webp";
 
 interface Message {
   role: "user" | "assistant";
@@ -449,9 +451,11 @@ export default function AIAssistant({
                 >
                   <span className="smart-ai-halo" />
                   <span className="smart-ai-body smart-ai-portrait">
-                    <img src={assistantAvatar} alt="" aria-hidden="true" />
+                    <img src={assistantBody} alt="" aria-hidden="true" />
                   </span>
-                  <span className="smart-ai-hand" style={{ backgroundImage: `url(${assistantAvatar})` }} />
+                  <span className="smart-ai-hand">
+                    <img src={assistantHand} alt="" aria-hidden="true" />
+                  </span>
                 </button>
                 <div className="min-w-0 flex-1 pb-2">
                   <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-300 px-3 py-1 text-[11px] font-black text-emerald-950">
