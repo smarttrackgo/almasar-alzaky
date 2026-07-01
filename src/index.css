@@ -453,6 +453,21 @@ button {
   border-color: rgba(255, 255, 255, .13);
   box-shadow: 0 14px 34px rgba(6, 78, 59, .16);
 }
+.smart-navbar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 82px;
+  height: 7px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, rgba(251, 191, 36, .72), rgba(16, 185, 129, .72));
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 9px 22px rgba(6, 78, 59, .22);
+  transition: opacity .25s ease, transform .25s ease;
+}
 .smart-navbar::before {
   content: "";
   position: absolute;
@@ -470,6 +485,41 @@ button {
 .smart-navbar img {
   mix-blend-mode: screen !important;
   filter: brightness(1.12) saturate(1.22) drop-shadow(0 8px 16px rgba(0, 0, 0, .18)) !important;
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .smart-navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    transform: translateY(calc(-100% + 18px));
+    opacity: .72;
+    transition:
+      transform .42s cubic-bezier(.16, 1, .3, 1),
+      opacity .28s ease,
+      box-shadow .28s ease;
+    will-change: transform;
+  }
+
+  .smart-navbar:hover,
+  .smart-navbar:focus-within,
+  .smart-navbar.smart-navbar-open {
+    transform: translateY(0);
+    opacity: 1;
+    box-shadow: 0 18px 46px rgba(6, 78, 59, .24);
+  }
+
+  .smart-navbar::after {
+    opacity: .95;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .smart-navbar:hover::after,
+  .smart-navbar:focus-within::after,
+  .smart-navbar.smart-navbar-open::after {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
 }
 .smart-mobile-menu {
   position: relative;
@@ -638,8 +688,8 @@ button {
 }
 .smart-ai-halo {
   position: absolute;
-  inset: 6px 0 auto;
-  height: 82px;
+  inset: 4px -4px auto;
+  height: 94px;
   border-radius: 999px;
   background:
     radial-gradient(circle at 50% 48%, rgba(253, 230, 138, .35), rgba(16, 185, 129, .12) 48%, transparent 70%);
@@ -648,64 +698,54 @@ button {
 }
 .smart-ai-body {
   position: absolute;
-  right: 20px;
-  bottom: 0;
-  width: 62px;
-  height: 78px;
-  border-radius: 26px 26px 22px 22px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.86), rgba(209,250,229,.96)),
-    linear-gradient(135deg, #d1fae5, #fef3c7);
+  right: -8px;
+  bottom: -3px;
+  width: 116px;
+  height: 128px;
+  border-radius: 0;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    inset 0 -12px 20px rgba(6, 78, 59, .14),
-    0 18px 32px rgba(2, 44, 34, .26);
+  box-shadow: none;
   animation: smartAiFloat 5.2s ease-in-out infinite;
+  overflow: visible;
 }
-.smart-ai-body::before {
-  content: "";
-  position: absolute;
-  top: 14px;
-  left: 17px;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #064e3b;
-  box-shadow: 22px 0 0 #064e3b;
-}
-.smart-ai-body::after {
-  content: "";
-  position: absolute;
-  left: 21px;
-  bottom: 17px;
-  width: 20px;
-  height: 7px;
-  border-radius: 999px;
-  border-bottom: 3px solid rgba(6, 78, 59, .72);
+.smart-ai-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 18px 22px rgba(2, 44, 34, .32));
 }
 .smart-ai-hand {
   position: absolute;
-  right: 5px;
-  top: 26px;
-  width: 24px;
-  height: 46px;
-  border-radius: 999px 999px 12px 12px;
-  background: linear-gradient(180deg, #fef3c7, #f59e0b);
-  transform-origin: 50% 90%;
-  box-shadow: 0 10px 18px rgba(120, 53, 15, .2);
-  animation: smartAiWave 3.8s ease-in-out infinite;
+  right: -8px;
+  bottom: -3px;
+  width: 116px;
+  height: 128px;
+  border-radius: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  clip-path: polygon(0 27%, 38% 27%, 39% 76%, 0 76%);
+  transform-origin: 24% 63%;
+  animation: smartAiPhotoWave 2.9s ease-in-out infinite;
+  will-change: transform;
+  pointer-events: none;
 }
-.smart-ai-hand::before {
+.smart-ai-hand::after {
   content: "";
   position: absolute;
-  top: -6px;
-  right: -3px;
-  width: 28px;
-  height: 18px;
-  border-radius: 999px 999px 12px 12px;
-  background: linear-gradient(180deg, #fef3c7, #fbbf24);
+  left: 1px;
+  top: 39px;
+  width: 26px;
+  height: 34px;
+  border-radius: 999px;
+  border-left: 2px solid rgba(253, 230, 138, .88);
+  border-top: 2px solid rgba(253, 230, 138, .54);
+  opacity: .72;
+  transform: rotate(-11deg);
 }
 @keyframes smartAiIntroIn {
   from { opacity: 0; transform: translate3d(-18px, 24px, 0) scale(.94); }
@@ -721,6 +761,13 @@ button {
   24% { transform: rotate(-10deg); }
   36% { transform: rotate(17deg); }
   50% { transform: rotate(-16deg); }
+}
+@keyframes smartAiPhotoWave {
+  0%, 100% { transform: rotate(0deg) translate3d(0, 0, 0); }
+  16% { transform: rotate(-7deg) translate3d(-1px, -1px, 0); }
+  32% { transform: rotate(5deg) translate3d(1px, 0, 0); }
+  48% { transform: rotate(-5deg) translate3d(-1px, -1px, 0); }
+  64% { transform: rotate(3deg) translate3d(0, 0, 0); }
 }
 @keyframes smartAiHalo {
   0%, 100% { opacity: .74; transform: scale(.96); }
@@ -738,32 +785,20 @@ button {
     padding: 10px;
   }
   .smart-ai-intro .smart-ai-avatar {
-    width: 58px;
-    height: 74px;
+    width: 64px;
+    height: 78px;
   }
   .smart-ai-intro .smart-ai-body {
-    right: 9px;
-    width: 44px;
-    height: 56px;
-    border-radius: 18px;
-  }
-  .smart-ai-intro .smart-ai-body svg {
-    width: 24px;
-    height: 24px;
-  }
-  .smart-ai-intro .smart-ai-body::before,
-  .smart-ai-intro .smart-ai-body::after {
-    display: none;
+    right: -6px;
+    width: 78px;
+    height: 86px;
+    border-radius: 0;
   }
   .smart-ai-intro .smart-ai-hand {
-    right: -1px;
-    top: 16px;
-    width: 17px;
-    height: 34px;
-  }
-  .smart-ai-intro .smart-ai-hand::before {
-    width: 20px;
-    height: 13px;
+    right: -6px;
+    width: 78px;
+    height: 86px;
+    border-radius: 0;
   }
   .smart-ai-intro h3 {
     font-size: 13px;
